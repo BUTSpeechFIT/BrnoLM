@@ -1,0 +1,72 @@
+Overall notes:
+For running the following, it is good to know:
+
+*   You better have KarelB's Python and environmental variables. 
+    See /mnt/matylda5/ibenes/projects/katja-embs/miniconda-setup.txt.
+*   Text input processing starts by `line.split()`, so feel free to mix tabs and spaces.
+*   The Python env runs on Python3, so keep input Unicode (UTF-8) and everything shall be fine.
+*   All commands parse arguments using argparse, so `script.py -h` will give some extra detail.
+*   Input/output is stdin/stdout oriented, so be sure to send the output somewhere, or your screen
+    will get desecrated.
+
+===============================================================================================
+
+The most common envisioned use of this package is to produce neural-LM expected embeddings.
+
+In order to do so, following is required:
+
+*   The candidates file.
+    It is expected to have all lines like: candidate_id w1_idx w2_idx w3_idx ...
+*   Word index <-> word mapping file to understand the candidates file.
+    This needs to be in the Kaldi words.txt format, so just give to one associated with
+    your decoding G.fst.
+*   Knowledge of candidate marking.
+    This includes the phoneme string beginning and end tokens and the magical '600,000' constant.
+*   Forward and/or backward LM. 
+    Best to ask KarelB for it, it needs to be a balls-LM :-)
+
+
+Two principal step are needed:
+1)  Turn the candidate file into a string-based one, processing the phoneme strings into oov tokens.
+    To do so run scripts/oov-clustering/process-hybrid-paths.py.
+2)  The embedding prediction itself.
+    To do so use run scripts/oov-clustering/predict-embeddings.py.
+
+
+As a result, embeddings file will be produced, in the format: candidate_id e_1 e_2 ... e_42 ...
+
+
+*EXAMPLE*
+
+# where I have data set up
+PROJ_DIR=/mnt/matylda5/ibenes/projects/katja-embs/librispeech
+
+# somewhere you have write permissions
+OUT_DIR=...
+
+# lets have all the scripts readily available
+cd /homes/kazi/ibenes/PhD/pyth-lm/balls
+
+
+# and now finally, the computation, all piped in
+head \
+        $PROJ_DIR/candidates-2018-09-25/context_strings_PWIP_0_PLMSF_0.8_PC_-10_3gram_no_prune_1.txt \
+        |\
+    ./scripts/oov-clustering/process-hybrid-paths.py \
+        --oov-start='<UNK>' \
+        --oov-end='<PHNSILSP>' \
+        --interest-constant=600000 \
+        --decoder-wordlist=$PROJ_DIR/katja-wsj-words.txt \
+        |\
+    tee $OUT_DIR/processed.tmp |\
+    ./scripts/oov-clustering/predict-embeddings.py \
+        --fwd-lm=$PROJ_DIR/lms/lstm-2l-1500h-p200.10M.lm \
+        --bwd-lm=$PROJ_DIR/lms/lstm-rev-2l-1500h-p200.10M.lm \
+        > $OUT_DIR/embs.tmp
+
+# see what the processing has done:
+# BTW -- I recently learned that typing "-S<Enter>" in `less` turns line wrapping off. A cool feature!
+less $OUT_DIR/processed.tmp
+
+# see the embeddings:
+less $OUT_DIR/embs.tmp
