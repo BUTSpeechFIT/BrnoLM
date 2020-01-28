@@ -9,7 +9,9 @@ class LanguageModel(torch.nn.Module):
         self.decoder = decoder
         self.vocab = vocab
 
-        self.forward = model.forward
+    def forward(self, x, h0):
+        o, h = self.model(x, h0)
+        return self.decoder(o), h
 
     def single_sentence_nll(self, sentence, prefix):
         sentence_ids = [self.vocab[c] for c in sentence]
