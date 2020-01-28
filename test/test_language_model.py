@@ -60,6 +60,25 @@ class TorchFaceTests(unittest.TestCase):
         self.assertTrue((y == expected_y).all())
         self.assertTrue((h2 == expected_h).all())
 
+    def test_batch(self):
+        x = torch.tensor([[1, 0], [2, 3]])
+        h0 = torch.tensor([[1.0], [-2.0]])
+        y, h2 = self.lm(x, h0)
+
+        expected_h = torch.tensor([[3.0], [0.0]])
+        expected_y = torch.tensor([
+            [
+                [-100.0+(-100.0), 2.0+1.0, 0.0+3.0, 5.0+(-4.0)],
+                [100.0+(-100.0), -2.0+1.0, 0.0+3.0, -5.0+(-4.0)],
+            ],
+            [
+                [-200.0+(-100.0), 4.0+1.0, 0.0+3.0, 10.0+(-4.0)],
+                [-300.0+(-100.0), 6.0+1.0, 0.0+3.0, 15.0+(-4.0)],
+            ],
+        ])
+        self.assertTrue((y == expected_y).all())
+        self.assertTrue((h2 == expected_h).all())
+
 
 class BatchNLLCorrectnessTests(unittest.TestCase):
     def setUp(self):
