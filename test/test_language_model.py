@@ -1,8 +1,64 @@
 import unittest
+
+import torch
+
 from brnolm.language_models.lstm_model import LSTMLanguageModel
 from brnolm.language_models.decoders import FullSoftmaxDecoder
 from brnolm.language_models.language_model import LanguageModel
 from brnolm.language_models.vocab import Vocabulary
+
+
+class FakeModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.proj = torch.nn.Linear(4, 1)
+        self.model_i = torch.nn.Embedding(4, 1)
+        self.model_i.weight[0, 0] = -1
+        self.model_i.weight[1, 0] = 1
+        self.model_i.weight[2, 0] = 2
+        self.model_i.weight[3, 0] = 3
+
+    def forward(self, x, h):
+        return self.model_i(x), h + x.shape[1]
+
+
+class FakeDecoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self._model_o = torch.nn.Linear(1, 4)
+        self._model_o.weight[0, 0] = -100
+        self._model_o.weight[1, 0] = 2
+        self._model_o.weight[2, 0] = 0
+        self._model_o.weight[3, 0] = 5
+        self._model_o.bias[0] = -100
+        self._model_o.bias[1] = 1
+        self._model_o.bias[2] = 3
+        self._model_o.bias[3] = -4
+
+    def forward(self, hs):
+        return self._model_o(hs)
+
+
+class TorchFaceTests(unittest.TestCase):
+    def setUp(self):
+        vocab = Vocabulary('<unk>', 0)
+        vocab.add_from_text('a b c')
+        model = FakeModel()
+        decoder = FakeDecoder()
+        self.lm = LanguageModel(model, decoder, vocab)
+
+    def test_single_sentence(self):
+        x = torch.tensor([[1, 0]])
+        h0 = torch.tensor([[1.0]])
+        y, h2 = self.lm(x, h0)
+
+        expected_h = torch.tensor([[3.0]])
+        expected_y = torch.tensor([[
+            [-100.0+(-100.0), 2.0+1.0, 0.0+3.0, 5.0+(-4.0)],
+            [100.0+(-100.0), -2.0+1.0, 0.0+3.0, -5.0+(-4.0)],
+        ]])
+        self.assertTrue((y == expected_y).all())
+        self.assertTrue((h2 == expected_h).all())
 
 
 class BatchNLLCorrectnessTests(unittest.TestCase):
