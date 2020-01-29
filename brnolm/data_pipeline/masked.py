@@ -11,9 +11,10 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0):
     batch_size = len(sentences)
     max_len = max(len(s) for s in sentences)
 
-    input = torch.zeros((batch_size, max_len-1), dtype=torch.int32)
-    target = torch.zeros((batch_size, max_len-1), dtype=torch.int32)
-    mask = torch.zeros((batch_size, max_len-1), dtype=torch.int32)
+    shape = (batch_size, max_len-1)
+    input = torch.zeros(shape, dtype=torch.int32)
+    target = torch.zeros(shape, dtype=torch.int32)
+    mask = torch.zeros(shape, dtype=torch.int32)
 
     for s in range(len(sentences)):
         for t in range(len(sentences[s]) - 1):
