@@ -69,3 +69,51 @@ class MaskedDataCreationTests(TestCase):
         self.assertEqual(x, e_input)
         self.assertEqual(t, e_target)
         self.assertEqual(m, e_mask)
+
+    def test_multiple_sentences_nonmatching(self):
+        sentences = [
+            [0, 1, 2, 3],
+            [4, 5, 6],
+        ]
+        x, t, m = masked_tensor_from_sentences(sentences)
+
+        e_input = tensor([
+            [0, 1, 2],
+            [4, 5, 0],
+        ])
+        e_target = tensor([
+            [1, 2, 3],
+            [5, 6, 0],
+        ])
+        e_mask = tensor([
+            [1, 1, 1],
+            [1, 1, 0],
+        ])
+
+        self.assertEqual(x, e_input)
+        self.assertEqual(t, e_target)
+        self.assertEqual(m, e_mask)
+
+    def test_multiple_sentences_nonmatching_first_short(self):
+        sentences = [
+            [4, 5, 6],
+            [0, 1, 2, 3],
+        ]
+        x, t, m = masked_tensor_from_sentences(sentences)
+
+        e_input = tensor([
+            [4, 5, 0],
+            [0, 1, 2],
+        ])
+        e_target = tensor([
+            [5, 6, 0],
+            [1, 2, 3],
+        ])
+        e_mask = tensor([
+            [1, 1, 0],
+            [1, 1, 1],
+        ])
+
+        self.assertEqual(x, e_input)
+        self.assertEqual(t, e_target)
+        self.assertEqual(m, e_mask)
