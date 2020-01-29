@@ -5,5 +5,8 @@ from brnolm.data_pipeline.masked import masked_tensor_from_sentences
 
 
 class MaskedDataCreationTests(TestCase):
+    def test_requires_sequence(self):
+        self.assertRaises(ValueError, masked_tensor_from_sentences, 0)
+
     def test_requires_batch(self):
         self.assertRaises(ValueError, masked_tensor_from_sentences, [0])
