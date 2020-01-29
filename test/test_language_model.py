@@ -104,3 +104,11 @@ class BatchNLLCorrectnessTests(unittest.TestCase):
 
         target = [self.lm.single_sentence_nll(s, prefix) for s in sentences]
         self.assertEqual(self.lm.batch_nll(batch, prefix), target)
+
+    def test_several_sentences_with_prefix(self):
+        sentences = ['ab', 'aaab', 'aaca', 'cacc']
+        batch = [list(s) for s in sentences]
+        prefix = 'c'
+
+        target = [self.lm.single_sentence_nll(s, prefix) for s in sentences]
+        self.assertEqual(self.lm.batch_nll(batch, prefix), target)
