@@ -39,16 +39,13 @@ class LanguageModel(torch.nn.Module):
         if not sentences:
             return []
 
+        idx_seqs = [[self.vocab[w] for w in s] for s in sentences]
+
         if prefix:
             prefix_idx = self.vocab[prefix]
 
-        idx_seqs = []
-        for s in sentences:
-            s_idxs = [self.vocab[w] for w in s]
-            if prefix:
+            for s_idxs in idx_seqs:
                 s_idxs.insert(0, prefix_idx)
-
-            idx_seqs.append(s_idxs)
 
         input, target, mask = masked_tensor_from_sentences(idx_seqs)
 
