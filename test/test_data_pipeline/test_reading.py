@@ -39,3 +39,12 @@ class IndependentSentecesTests(TestCase):
             torch.tensor([2, 3, 1]),
         ]
         self.assertEqual(lines, expected)
+
+    def test_empty_line_skipped(self):
+        f = get_stream('a b\n\nb c a\n')
+        lines = get_independent_lines(f, self.vocab)
+        expected = [
+            torch.tensor([1, 2]),
+            torch.tensor([2, 3, 1]),
+        ]
+        self.assertEqual(lines, expected)
