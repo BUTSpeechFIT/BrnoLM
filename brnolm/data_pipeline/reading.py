@@ -43,6 +43,9 @@ def tokens_from_fn(fn, vocab, randomize, regime='words'):
 
 
 def get_independent_lines(f, vocab):
+    lines = []
     for line in f:
         words = line.split()
-        return [torch.tensor([vocab[w] for w in words])]
+        lines.append(torch.tensor([vocab[w] for w in words]))
+
+    return lines
