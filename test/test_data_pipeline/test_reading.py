@@ -25,3 +25,8 @@ class IndependentSentecesTests(TestCase):
         f = get_stream('a\n')
         lines = get_independent_lines(f, self.vocab)
         self.assertEqual(lines, [torch.tensor([1])])
+
+    def test_two_words(self):
+        f = get_stream('a b\n')
+        lines = get_independent_lines(f, self.vocab)
+        self.assertEqual(lines, [torch.tensor([1, 2])])
