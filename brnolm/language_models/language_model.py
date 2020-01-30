@@ -1,4 +1,5 @@
 import torch
+from brnolm.data_pipeline.masked import masked_tensor_from_sentences
 
 
 class LanguageModel(torch.nn.Module):
@@ -29,10 +30,40 @@ class LanguageModel(torch.nn.Module):
         if prefix:
             nll, _ = self.decoder.neg_log_prob(o, tensor[:, 1:])
         else:
-            prepended_o = torch.cat([h0[0][0].unsqueeze(0), o], dim=1)
+            prepended_o = torch.cat([h0[0][0].unsqueeze(1), o], dim=1)
             nll, _ = self.decoder.neg_log_prob(prepended_o, tensor)
 
         return nll.item()
 
     def batch_nll(self, sentences, prefix):
-        return [self.single_sentence_nll(s, prefix) for s in sentences]
+        if not sentences:
+            return []
+
+        idx_seqs = [[self.vocab[w] for w in s] for s in sentences]
+
+        if prefix:
+            prefix_idx = self.vocab[prefix]
+
+            for s_idxs in idx_seqs:
+                s_idxs.insert(0, prefix_idx)
+
+        input, target, mask = masked_tensor_from_sentences(idx_seqs)
+        batch_size = input.shape[0]
+
+        if not prefix:
+            first_inputs = input[:, 0].view(-1, 1)
+            target = torch.cat([first_inputs, target], dim=1)
+
+            batch_of_ones = torch.ones((batch_size, 1), dtype=torch.int64)
+            mask = torch.cat([batch_of_ones, mask], dim=1)
+
+        h0 = self.model.init_hidden(batch_size)
+        o, _ = self.model(input, h0)
+        if not prefix:
+            o0 = h0[0][0].unsqueeze(1)
+            o = torch.cat([o0, o], dim=1)
+
+        all_nlllh = self.decoder.neg_log_prob_raw(o, target)
+        masked_nlllh = all_nlllh * mask
+
+        return masked_nlllh.sum(dim=1).detach().numpy().tolist()
