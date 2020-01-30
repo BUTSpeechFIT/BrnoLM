@@ -5,7 +5,7 @@ import math
 import torch
 import pathlib
 
-from brnolm.data_pipeline.data import tokens_from_fn
+from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.multistream import batchify
 from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
