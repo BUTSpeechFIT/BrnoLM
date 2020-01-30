@@ -48,3 +48,8 @@ class IndependentSentecesTests(TestCase):
             torch.tensor([2, 3, 1]),
         ]
         self.assertEqual(lines, expected)
+
+    def test_empty_file_empty_output(self):
+        f = get_stream('')
+        lines = get_independent_lines(f, self.vocab)
+        self.assertEqual(lines, [])
