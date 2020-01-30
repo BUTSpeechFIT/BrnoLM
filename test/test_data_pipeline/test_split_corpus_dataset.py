@@ -1,9 +1,9 @@
 import brnolm.data_pipeline.split_corpus_dataset as split_corpus_dataset
 
 import torch
-from .common import TestCase
+from test.common import TestCase
 
-from .utils import getStream
+from test.utils import getStream
 
 
 class TokenizedSplitTests(TestCase):

@@ -1,4 +1,4 @@
-from .common import TestCase
+from test.common import TestCase
 from torch import tensor
 
 
