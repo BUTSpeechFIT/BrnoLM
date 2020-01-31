@@ -48,21 +48,31 @@ if __name__ == '__main__':
         lines = get_independent_lines(f, lm.vocab)
 
     if args.sort_by_len:
+        print("sorting lines...")
         lines = sorted(lines, key=lambda l: len(l))
 
+    print("computing statistics...")
     nb_tokens = sum(len(ids) for ids in lines)
     nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in lines)
     print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_tokens, 100.0 * nb_oovs/nb_tokens))
+
+    if args.prefix:
+        print('Adding prefixes...')
+        prefix_ind = lm.vocab[args.prefix]
+        if prefix_ind == lm.vocab.unk_ind:
+            print('Warning: prefix translates to unk!')
+
+        prefix = torch.tensor([prefix_ind], dtype=lines[0].dtype)
+        lines = [torch.cat([prefix, l]) for l in lines]
 
     loss = 0.0
     data_stream = OndemandDataProvider(batcher(lines, args.batch_size, args.max_tokens), cuda=False)
     total_actual_size = 0
     with torch.no_grad():
         for i, batch in enumerate(data_stream):
-            act_batch_size = max(len(t) for t in batch) * len(batch)
-            total_actual_size += act_batch_size
             per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
             loss += per_line_losses.sum().detach().item()
+            total_actual_size += per_line_losses.numel()
 
     print(f'Utilization: {100.0*nb_tokens/total_actual_size:.2f} % ({nb_tokens} tokens / {total_actual_size} softmaxes total)')
     print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_tokens, math.exp(loss/nb_tokens)))
