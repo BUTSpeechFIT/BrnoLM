@@ -50,9 +50,9 @@ if __name__ == '__main__':
     if args.sort_by_len:
         lines = sorted(lines, key=lambda l: len(l))
 
-    nb_words = sum(len(ids) for ids in lines)
+    nb_tokens = sum(len(ids) for ids in lines)
     nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in lines)
-    print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_words, 100.0 * nb_oovs/nb_words))
+    print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_tokens, 100.0 * nb_oovs/nb_tokens))
 
     loss = 0.0
     data_stream = OndemandDataProvider(batcher(lines, args.batch_size, args.max_tokens), cuda=False)
@@ -64,5 +64,5 @@ if __name__ == '__main__':
             per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
             loss += per_line_losses.sum().detach().item()
 
-    print(f'Utilization: {100.0*nb_words/total_actual_size:.2f} % ({nb_words} words / {total_actual_size} softmaxes total)')
-    print('total loss {:.1f} | loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_words, math.exp(loss/nb_words)))
+    print(f'Utilization: {100.0*nb_tokens/total_actual_size:.2f} % ({nb_tokens} tokens / {total_actual_size} softmaxes total)')
+    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_tokens, math.exp(loss/nb_tokens)))
