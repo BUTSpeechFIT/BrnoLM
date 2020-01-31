@@ -57,11 +57,12 @@ if __name__ == '__main__':
     loss = 0.0
     data_stream = OndemandDataProvider(batcher(lines, args.batch_size, args.max_tokens), cuda=False)
     total_actual_size = 0
-    for i, batch in enumerate(data_stream):
-        act_batch_size = max(len(t) for t in batch) * len(batch)
-        total_actual_size += act_batch_size
-        per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
-        loss += per_line_losses.sum().detach().item()
+    with torch.no_grad():
+        for i, batch in enumerate(data_stream):
+            act_batch_size = max(len(t) for t in batch) * len(batch)
+            total_actual_size += act_batch_size
+            per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
+            loss += per_line_losses.sum().detach().item()
 
     print(f'Utilization: {100.0*nb_words/total_actual_size:.2f} % ({nb_words} words / {total_actual_size} softmaxes total)')
     print('total loss {:.1f} | loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_words, math.exp(loss/nb_words)))
