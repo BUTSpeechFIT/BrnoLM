@@ -69,6 +69,21 @@ class BatcherTests(TestCase):
         self.assertEqual(batches[1], [[2], [3]])
         self.assertEqual(batches[2], [[4], [5]])
 
+    def test_no_bsz_limit(self):
+        in_set = [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+        ]
+        batch_generator = batcher(in_set, max_total_len=4)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0], [[0], [1], [2], [3]])
+        self.assertEqual(batches[1], [[4], [5]])
+
 
 # TODO remove the dependency on TokenizedSplit, ivectors etc.
 class BatchBuilderTest(TestCase):

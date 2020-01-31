@@ -15,10 +15,13 @@ def batchify(data, bsz, cuda):
     return data
 
 
-def batcher(samples, max_batch_size, max_total_len=None):
+def batcher(samples, max_batch_size=None, max_total_len=None):
     """Groups sequences in a list into batches
     """
     def batch_size_ok(i, j):
+        if not max_batch_size:
+            return True
+
         return (j-i) <= max_batch_size
 
     def total_len_ok(i, j):
