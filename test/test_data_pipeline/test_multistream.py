@@ -47,7 +47,7 @@ class BatcherTests(TestCase):
             [3, 4],
             [5, 6],
         ]
-        batch_generator = batcher(in_set, 2, max_total_len=4)
+        batch_generator = batcher(in_set, 2, max_total_len=5)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 2)
         self.assertEqual(batches[0], [[0, 1, 2]])

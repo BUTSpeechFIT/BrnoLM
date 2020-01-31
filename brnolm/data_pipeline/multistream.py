@@ -28,7 +28,7 @@ def batcher(samples, max_batch_size=None, max_total_len=None):
         if not max_total_len:
             return True
 
-        return sum(len(t) for t in samples[i:j]) <= max_total_len
+        return max((len(t) for t in samples[i:j]), default=0) * (j-i) <= max_total_len
 
     i = 0
     while i < len(samples):
