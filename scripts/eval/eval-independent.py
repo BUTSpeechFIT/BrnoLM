@@ -6,17 +6,8 @@ import torch
 
 from brnolm.data_pipeline.reading import get_independent_lines
 from brnolm.data_pipeline.threaded import OndemandDataProvider
+from brnolm.data_pipeline.multistream import batcher
 from brnolm.runtime.runtime_utils import init_seeds
-
-
-def batcher(samples, batch_size):
-    i = 0
-    while i + batch_size - 1 < len(samples):
-        yield samples[i:i+batch_size]
-        i += batch_size
-
-    if i < len(samples):
-        yield samples[i:]
 
 
 if __name__ == '__main__':
