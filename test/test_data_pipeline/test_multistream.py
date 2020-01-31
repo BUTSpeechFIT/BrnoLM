@@ -24,6 +24,7 @@ class BatcherTests(TestCase):
         ]
         batch_generator = batcher(in_set, 1)
         batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 3)
         self.assertEqual(batches[0], [[0, 1]])
         self.assertEqual(batches[1], [[2, 3, 4]])
         self.assertEqual(batches[2], [[5, 6]])
@@ -36,8 +37,37 @@ class BatcherTests(TestCase):
         ]
         batch_generator = batcher(in_set, 2)
         batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
         self.assertEqual(batches[0], [[0, 1], [2, 3, 4]])
         self.assertEqual(batches[1], [[5, 6]])
+
+    def test_max_len_no_conflict(self):
+        in_set = [
+            [0, 1, 2],
+            [3, 4],
+            [5, 6],
+        ]
+        batch_generator = batcher(in_set, 2, max_total_len=4)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0], [[0, 1, 2]])
+        self.assertEqual(batches[1], [[3, 4], [5, 6]])
+
+    def test_max_len_conflict_batch_size(self):
+        in_set = [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+        ]
+        batch_generator = batcher(in_set, 2, max_total_len=4)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 3)
+        self.assertEqual(batches[0], [[0], [1]])
+        self.assertEqual(batches[1], [[2], [3]])
+        self.assertEqual(batches[2], [[4], [5]])
 
 
 # TODO remove the dependency on TokenizedSplit, ivectors etc.

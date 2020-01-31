@@ -15,16 +15,30 @@ def batchify(data, bsz, cuda):
     return data
 
 
-def batcher(samples, batch_size):
+def batcher(samples, max_batch_size, max_total_len=None):
     """Groups sequences in a list into batches
     """
-    i = 0
-    while i + batch_size - 1 < len(samples):
-        yield samples[i:i+batch_size]
-        i += batch_size
+    def batch_size_ok(i, j):
+        return (j-i) <= max_batch_size
 
-    if i < len(samples):
-        yield samples[i:]
+    def total_len_ok(i, j):
+        if not max_total_len:
+            return True
+
+        return sum(len(t) for t in samples[i:j]) <= max_total_len
+
+    i = 0
+    while i < len(samples):
+        j = i
+        while j <= len(samples) and batch_size_ok(i, j) and total_len_ok(i, j):
+            j += 1
+        j -= 1
+
+        if i == j:
+            raise ValueError(f'Failed to construct a batch on line {i} (zero-based)')
+
+        yield samples[i:j]
+        i = j
 
 
 class BatchBuilder():
