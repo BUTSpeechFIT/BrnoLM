@@ -19,6 +19,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
+    parser.add_argument('--max-tokens', type=int, default=1000, metavar='N',
+                        help='Maximal number of softmaxes in a batch')
 
     parser.add_argument('--seed', type=int, default=1111,
                         help='random seed')
@@ -34,6 +36,7 @@ if __name__ == '__main__':
     print("loading model...")
     lm = torch.load(args.load, map_location='cpu')
     lm.nb_nonzero_masks = 0
+    lm.eval()
     if args.cuda:
         lm.cuda()
     print(lm)
@@ -47,9 +50,13 @@ if __name__ == '__main__':
     print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_words, 100.0 * nb_oovs/nb_words))
 
     loss = 0.0
-    data_stream = OndemandDataProvider(batcher(lines, args.batch_size), cuda=False)
+    data_stream = OndemandDataProvider(batcher(lines, args.batch_size, args.max_tokens), cuda=False)
+    total_actual_size = 0
     for i, batch in enumerate(data_stream):
+        act_batch_size = max(len(t) for t in batch) * len(batch)
+        total_actual_size += act_batch_size
         per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
         loss += per_line_losses.sum().detach().item()
 
+    print(f'Utilization: {100.0*nb_words/total_actual_size:.2f} % ({nb_words} words / {total_actual_size} softmaxes total)')
     print('total loss {:.1f} | loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_words, math.exp(loss/nb_words)))
