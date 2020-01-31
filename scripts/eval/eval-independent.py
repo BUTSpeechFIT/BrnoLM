@@ -21,6 +21,8 @@ if __name__ == '__main__':
                         help='batch size')
     parser.add_argument('--max-tokens', type=int, default=1000, metavar='N',
                         help='Maximal number of softmaxes in a batch')
+    parser.add_argument('--sort-by-len', action='store_true',
+                        help='sort lines by len for better utilization')
 
     parser.add_argument('--seed', type=int, default=1111,
                         help='random seed')
@@ -44,6 +46,9 @@ if __name__ == '__main__':
     print("preparing data...")
     with open(args.data) as f:
         lines = get_independent_lines(f, lm.vocab)
+
+    if args.sort_by_len:
+        lines = sorted(lines, key=lambda l: len(l))
 
     nb_words = sum(len(ids) for ids in lines)
     nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in lines)
