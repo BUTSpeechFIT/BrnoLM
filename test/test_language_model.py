@@ -1,4 +1,5 @@
 import unittest
+import os
 
 import torch
 
@@ -80,14 +81,9 @@ class TorchFaceTests(unittest.TestCase):
         self.assertTrue((h2 == expected_h).all())
 
 
-class BatchNLLCorrectnessTests(unittest.TestCase):
-    def setUp(self):
-        vocab = Vocabulary('<unk>', 0)
-        vocab.add_from_text('a b c')
-        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
-        decoder = FullSoftmaxDecoder(10, len(vocab))
-        self.lm = LanguageModel(model, decoder, vocab)
-
+class BatchNLLCorrectnessTestsBase:
+    '''Inhereted test classes must provide self.lm.
+    '''
     def test_no_input(self):
         self.assertEqual(self.lm.batch_nll([], (['a useless prefix'])), [])
 
@@ -112,3 +108,22 @@ class BatchNLLCorrectnessTests(unittest.TestCase):
 
         target = [self.lm.single_sentence_nll(s, prefix) for s in sentences]
         self.assertEqual(self.lm.batch_nll(batch, prefix), target)
+
+
+class CPU_BatchNLLCorrectnessTests(unittest.TestCase, BatchNLLCorrectnessTestsBase):
+    def setUp(self):
+        vocab = Vocabulary('<unk>', 0)
+        vocab.add_from_text('a b c')
+        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        decoder = FullSoftmaxDecoder(10, len(vocab))
+        self.lm = LanguageModel(model, decoder, vocab)
+
+
+@unittest.skipIf(os.environ.get('TEST_CUDA') != 'yes', "For GPU tests, set TEST_CUDA='yes'")
+class CUDA_BatchNLLCorrectnessTests(unittest.TestCase, BatchNLLCorrectnessTestsBase):
+    def setUp(self):
+        vocab = Vocabulary('<unk>', 0)
+        vocab.add_from_text('a b c')
+        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        decoder = FullSoftmaxDecoder(10, len(vocab))
+        self.lm = LanguageModel(model, decoder, vocab).to('cuda')
