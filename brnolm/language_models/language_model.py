@@ -49,17 +49,18 @@ class LanguageModel(torch.nn.Module):
 
         masked_nlllh = self.batch_nll_idxs(idx_seqs, predict_first=not prefix)
 
-        return masked_nlllh.sum(dim=1).detach().numpy().tolist()
+        return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist()
 
     def batch_nll_idxs(self, idxs, predict_first=True):
-        input, target, mask = masked_tensor_from_sentences(idxs)
+        device = next(self.parameters()).device
+        input, target, mask = masked_tensor_from_sentences(idxs, device=device)
         batch_size = input.shape[0]
 
         if predict_first:
             first_inputs = input[:, 0].view(-1, 1)
             target = torch.cat([first_inputs, target], dim=1)
 
-            batch_of_ones = torch.ones((batch_size, 1), dtype=torch.int64)
+            batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
             mask = torch.cat([batch_of_ones, mask], dim=1)
 
         h0 = self.model.init_hidden(batch_size)
