@@ -15,6 +15,8 @@ class LanguageModel(torch.nn.Module):
         return self.decoder(o), h
 
     def single_sentence_nll(self, sentence, prefix):
+        '''Provides the negative log-probability of a sequence of tokens
+        '''
         sentence_ids = [self.vocab[c] for c in sentence]
         device = next(self.parameters()).device
 
@@ -36,6 +38,8 @@ class LanguageModel(torch.nn.Module):
         return nll.item()
 
     def batch_nll(self, sentences, prefix):
+        '''Provides the negative log-probability of a batch of sequences of tokens
+        '''
         if not sentences:
             return []
 
@@ -52,6 +56,8 @@ class LanguageModel(torch.nn.Module):
         return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist()
 
     def batch_nll_idxs(self, idxs, predict_first=True):
+        '''Provides the negative log-probability of a batch of sequences of indexes
+        '''
         device = next(self.parameters()).device
         input, target, mask = masked_tensor_from_sentences(idxs, device=device)
         batch_size = input.shape[0]
