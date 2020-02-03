@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import math
 import torch
 
@@ -11,29 +12,37 @@ from brnolm.runtime.runtime_utils import init_seeds
 
 
 class IndependentLinesEvaluator:
-    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens):
+    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens, logger=None):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger('IndependentLinesEvaluator')
         self.lm = lm
         self.max_batch_size = max_batch_size
         self.max_tokens = max_tokens
 
-        print("preparing data...")
+        self.logger.debug("preparing data...")
         with open(fn_evalset) as f:
             self.lines = get_independent_lines(f, lm.vocab)
 
-        print("sorting lines...")
+        self.logger.debug("sorting lines...")
         self.lines = sorted(self.lines, key=lambda l: len(l))
 
-        print("computing statistics...")
+        self.logger.debug("computing statistics...")
         self.nb_tokens = sum(len(ids) for ids in self.lines)
         nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in self.lines)
-        print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, self.nb_tokens, 100.0 * nb_oovs/self.nb_tokens))
+        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, self.nb_tokens, 100.0 * nb_oovs/self.nb_tokens)
+        if nb_oovs / self.nb_tokens > 0.05:
+            self.logger.warning(oov_msg)
+        else:
+            self.logger.info(oov_msg)
 
     def evaluate(self, prefix):
         if prefix:
-            print('Adding prefixes...')
+            logging.debug('Adding prefixes...')
             prefix_ind = self.lm.vocab[prefix]
             if prefix_ind == self.lm.vocab.unk_ind:
-                print('Warning: prefix translates to unk!')
+                logging.warning('Warning: prefix translates to unk!')
 
             prefix = torch.tensor([prefix_ind], dtype=self.lines[0].dtype)
             lines = [torch.cat([prefix, l]) for l in self.lines]
@@ -52,6 +61,7 @@ class IndependentLinesEvaluator:
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='[%(levelname)s::%(name)s] %(message)s')
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--data', type=str, required=True,
                         help='location of the data corpus')
