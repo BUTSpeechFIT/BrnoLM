@@ -10,7 +10,48 @@ from brnolm.data_pipeline.multistream import batcher
 from brnolm.runtime.runtime_utils import init_seeds
 
 
-if __name__ == '__main__':
+class IndependentLinesEvaluator:
+    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens):
+        self.lm = lm
+        self.max_batch_size = max_batch_size
+        self.max_tokens = max_tokens
+
+        print("preparing data...")
+        with open(fn_evalset) as f:
+            self.lines = get_independent_lines(f, lm.vocab)
+
+        print("sorting lines...")
+        self.lines = sorted(self.lines, key=lambda l: len(l))
+
+        print("computing statistics...")
+        self.nb_tokens = sum(len(ids) for ids in self.lines)
+        nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in self.lines)
+        print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, self.nb_tokens, 100.0 * nb_oovs/self.nb_tokens))
+
+    def evaluate(self, prefix):
+        if prefix:
+            print('Adding prefixes...')
+            prefix_ind = self.lm.vocab[prefix]
+            if prefix_ind == self.lm.vocab.unk_ind:
+                print('Warning: prefix translates to unk!')
+
+            prefix = torch.tensor([prefix_ind], dtype=self.lines[0].dtype)
+            lines = [torch.cat([prefix, l]) for l in self.lines]
+
+        loss = 0.0
+        data_stream = OndemandDataProvider(batcher(lines, self.max_batch_size, self.max_tokens), cuda=False)
+        total_actual_size = 0
+        with torch.no_grad():
+            for i, batch in enumerate(data_stream):
+                per_line_losses = self.lm.batch_nll_idxs(batch, not prefix)
+                loss += per_line_losses.sum().detach().item()
+                total_actual_size += per_line_losses.numel()
+
+        utilization = self.nb_tokens/total_actual_size
+        return loss, utilization
+
+
+def main():
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--data', type=str, required=True,
                         help='location of the data corpus')
@@ -43,36 +84,12 @@ if __name__ == '__main__':
         lm.cuda()
     print(lm)
 
-    print("preparing data...")
-    with open(args.data) as f:
-        lines = get_independent_lines(f, lm.vocab)
+    evaluator = IndependentLinesEvaluator(lm, args.data, args.batch_size, args.max_tokens)
+    loss, utilization = evaluator.evaluate(args.prefix)
 
-    if args.sort_by_len:
-        print("sorting lines...")
-        lines = sorted(lines, key=lambda l: len(l))
+    print(f'Utilization: {100.0*utilization:.2f} %')
+    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/evaluator.nb_tokens, math.exp(loss/evaluator.nb_tokens)))
 
-    print("computing statistics...")
-    nb_tokens = sum(len(ids) for ids in lines)
-    nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in lines)
-    print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_tokens, 100.0 * nb_oovs/nb_tokens))
 
-    if args.prefix:
-        print('Adding prefixes...')
-        prefix_ind = lm.vocab[args.prefix]
-        if prefix_ind == lm.vocab.unk_ind:
-            print('Warning: prefix translates to unk!')
-
-        prefix = torch.tensor([prefix_ind], dtype=lines[0].dtype)
-        lines = [torch.cat([prefix, l]) for l in lines]
-
-    loss = 0.0
-    data_stream = OndemandDataProvider(batcher(lines, args.batch_size, args.max_tokens), cuda=False)
-    total_actual_size = 0
-    with torch.no_grad():
-        for i, batch in enumerate(data_stream):
-            per_line_losses = lm.batch_nll_idxs(batch, not args.prefix)
-            loss += per_line_losses.sum().detach().item()
-            total_actual_size += per_line_losses.numel()
-
-    print(f'Utilization: {100.0*nb_tokens/total_actual_size:.2f} % ({nb_tokens} tokens / {total_actual_size} softmaxes total)')
-    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/nb_tokens, math.exp(loss/nb_tokens)))
+if __name__ == '__main__':
+    main()
