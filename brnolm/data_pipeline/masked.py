@@ -2,7 +2,7 @@ from typing import List
 import torch
 
 
-def masked_tensor_from_sentences(sentences: List[List[int]], filler=0):
+def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=torch.device('cpu')):
     try:
         sentences[0][0]
     except TypeError:
@@ -12,9 +12,9 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0):
     max_len = max(len(s) for s in sentences)
 
     shape = (batch_size, max_len-1)
-    input = torch.zeros(shape, dtype=torch.int64)
-    target = torch.zeros(shape, dtype=torch.int64)
-    mask = torch.zeros(shape, dtype=torch.int64)
+    input = torch.zeros(shape, dtype=torch.int64).to(device)
+    target = torch.zeros(shape, dtype=torch.int64).to(device)
+    mask = torch.zeros(shape, dtype=torch.int64).to(device)
 
     for s in range(len(sentences)):
         for t in range(len(sentences[s]) - 1):

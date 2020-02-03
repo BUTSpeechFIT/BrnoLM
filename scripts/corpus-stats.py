@@ -4,7 +4,7 @@ import argparse
 import torch
 import sys
 
-from brnolm.data_pipeline.data import tokens_from_fn
+from brnolm.data_pipeline.reading import tokens_from_fn
 
 
 if __name__ == '__main__':

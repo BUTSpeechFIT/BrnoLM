@@ -1,4 +1,7 @@
-from .common import TestCase
+import unittest
+import os
+
+from test.common import TestCase
 from torch import tensor
 
 
@@ -28,6 +31,14 @@ class MaskedDataCreationTests(TestCase):
         self.assertEqual(x, e_input)
         self.assertEqual(t, e_target)
         self.assertEqual(m, e_mask)
+
+    @unittest.skipIf(os.environ.get('TEST_CUDA') != 'yes', "For GPU tests, set TEST_CUDA='yes'")
+    def test_cuda(self):
+        x, t, m = masked_tensor_from_sentences([[0, 1]], device='cuda')
+
+        self.assertTrue(x.is_cuda)
+        self.assertTrue(t.is_cuda)
+        self.assertTrue(m.is_cuda)
 
     def test_single_sentence_multiple_steps(self):
         x, t, m = masked_tensor_from_sentences([[0, 1, 2, 3]])

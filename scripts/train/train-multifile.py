@@ -7,7 +7,7 @@ import torch
 
 from brnolm.data_pipeline.multistream import BatchBuilder
 
-from brnolm.data_pipeline.data import tokens_from_file
+from brnolm.data_pipeline.reading import tokens_from_file
 from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 
 from brnolm.runtime.runtime_utils import CudaStream, init_seeds, filelist_to_objects, BatchFilter, epoch_summary

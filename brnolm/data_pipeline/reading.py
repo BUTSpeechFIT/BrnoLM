@@ -40,3 +40,13 @@ def tokens_from_file(f, vocab, randomize, regime='words'):
 def tokens_from_fn(fn, vocab, randomize, regime='words'):
     with open(fn, 'r') as f:
         return tokens_from_file(f, vocab, randomize, regime)
+
+
+def get_independent_lines(f, vocab):
+    lines = []
+    for line in f:
+        words = line.split()
+        if words:
+            lines.append(torch.tensor([vocab[w] for w in words]))
+
+    return lines

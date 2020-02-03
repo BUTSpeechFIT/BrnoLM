@@ -15,6 +15,8 @@ class LanguageModel(torch.nn.Module):
         return self.decoder(o), h
 
     def single_sentence_nll(self, sentence, prefix):
+        '''Provides the negative log-probability of a sequence of tokens
+        '''
         sentence_ids = [self.vocab[c] for c in sentence]
         device = next(self.parameters()).device
 
@@ -36,6 +38,8 @@ class LanguageModel(torch.nn.Module):
         return nll.item()
 
     def batch_nll(self, sentences, prefix):
+        '''Provides the negative log-probability of a batch of sequences of tokens
+        '''
         if not sentences:
             return []
 
@@ -47,23 +51,30 @@ class LanguageModel(torch.nn.Module):
             for s_idxs in idx_seqs:
                 s_idxs.insert(0, prefix_idx)
 
-        input, target, mask = masked_tensor_from_sentences(idx_seqs)
+        masked_nlllh = self.batch_nll_idxs(idx_seqs, predict_first=not prefix)
+
+        return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist()
+
+    def batch_nll_idxs(self, idxs, predict_first=True):
+        '''Provides the negative log-probability of a batch of sequences of indexes
+        '''
+        device = next(self.parameters()).device
+        input, target, mask = masked_tensor_from_sentences(idxs, device=device)
         batch_size = input.shape[0]
 
-        if not prefix:
+        if predict_first:
             first_inputs = input[:, 0].view(-1, 1)
             target = torch.cat([first_inputs, target], dim=1)
 
-            batch_of_ones = torch.ones((batch_size, 1), dtype=torch.int64)
+            batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
             mask = torch.cat([batch_of_ones, mask], dim=1)
 
         h0 = self.model.init_hidden(batch_size)
         o, _ = self.model(input, h0)
-        if not prefix:
+        if predict_first:
             o0 = h0[0][0].unsqueeze(1)
             o = torch.cat([o0, o], dim=1)
 
         all_nlllh = self.decoder.neg_log_prob_raw(o, target)
-        masked_nlllh = all_nlllh * mask
 
-        return masked_nlllh.sum(dim=1).detach().numpy().tolist()
+        return all_nlllh * mask

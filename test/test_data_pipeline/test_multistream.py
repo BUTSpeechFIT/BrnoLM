@@ -1,12 +1,88 @@
 from brnolm.data_pipeline.multistream import BatchBuilder
+from brnolm.data_pipeline.multistream import batcher
 import brnolm.data_pipeline.split_corpus_dataset as split_corpus_dataset
 import brnolm.smm_itf.ivec_appenders as ivec_appenders
 
 import numpy as np
 import torch
-from .common import TestCase
+from test.common import TestCase
 
-from .utils import getStream
+from test.utils import getStream
+
+
+class BatcherTests(TestCase):
+    def test_empty_in_set(self):
+        in_set = []
+        batch_generator = batcher(in_set, 1)
+        self.assertEqual(list(iter(batch_generator)), [])
+
+    def test_bs_1(self):
+        in_set = [
+            [0, 1],
+            [2, 3, 4],
+            [5, 6],
+        ]
+        batch_generator = batcher(in_set, 1)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 3)
+        self.assertEqual(batches[0], [[0, 1]])
+        self.assertEqual(batches[1], [[2, 3, 4]])
+        self.assertEqual(batches[2], [[5, 6]])
+
+    def test_bs_2(self):
+        in_set = [
+            [0, 1],
+            [2, 3, 4],
+            [5, 6],
+        ]
+        batch_generator = batcher(in_set, 2)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0], [[0, 1], [2, 3, 4]])
+        self.assertEqual(batches[1], [[5, 6]])
+
+    def test_max_len_no_conflict(self):
+        in_set = [
+            [0, 1, 2],
+            [3, 4],
+            [5, 6],
+        ]
+        batch_generator = batcher(in_set, 2, max_total_len=5)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0], [[0, 1, 2]])
+        self.assertEqual(batches[1], [[3, 4], [5, 6]])
+
+    def test_max_len_conflict_batch_size(self):
+        in_set = [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+        ]
+        batch_generator = batcher(in_set, 2, max_total_len=4)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 3)
+        self.assertEqual(batches[0], [[0], [1]])
+        self.assertEqual(batches[1], [[2], [3]])
+        self.assertEqual(batches[2], [[4], [5]])
+
+    def test_no_bsz_limit(self):
+        in_set = [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+        ]
+        batch_generator = batcher(in_set, max_total_len=4)
+        batches = list(iter(batch_generator))
+        self.assertEqual(len(batches), 2)
+        self.assertEqual(batches[0], [[0], [1], [2], [3]])
+        self.assertEqual(batches[1], [[4], [5]])
 
 
 # TODO remove the dependency on TokenizedSplit, ivectors etc.
@@ -35,7 +111,6 @@ class BatchBuilderTest(TestCase):
             "b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -56,7 +131,6 @@ class BatchBuilderTest(TestCase):
             "b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder(tss, len(tss))
         batches = iter(batches)
@@ -76,7 +150,6 @@ class BatchBuilderTest(TestCase):
             "b c".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -97,7 +170,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=2)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -118,7 +190,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -149,7 +220,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -162,7 +232,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], len(tss))
         batches = iter(batches)
@@ -193,7 +262,6 @@ class BatchBuilderTest(TestCase):
             "b c".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         self.assertRaises(ValueError, BatchBuilder, [self.ivec_app_ctor(ts) for ts in tss], 0)
 
@@ -203,7 +271,6 @@ class BatchBuilderTest(TestCase):
             "b c".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 1)
         batches = iter(batches)
@@ -236,7 +303,6 @@ class BatchBuilderTest(TestCase):
             "c a".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 2)
         batches = iter(batches)
@@ -268,7 +334,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 2)
         batches = iter(batches)
@@ -310,7 +375,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 2)
         batches = iter(batches)
@@ -330,7 +394,7 @@ class BatchBuilderTest(TestCase):
             torch.LongTensor([[1], [1]]),
             torch.LongTensor([[2], [1]]),
             torch.stack([self.ivec_eetor(" ".join(words[:-1])) for words in [test_seqs[0], test_seqs[2]]]),
-            torch.LongTensor([0,1]),
+            torch.LongTensor([0, 1]),
         )
 
         self.assertEqual(batch, expectation)
@@ -342,7 +406,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 2)
         epoch1 = list(iter(batches))
@@ -356,7 +419,6 @@ class BatchBuilderTest(TestCase):
             "b c".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 1, discard_h=False)
         batches = iter(batches)
@@ -388,7 +450,6 @@ class BatchBuilderTest(TestCase):
             "b b b".split(),
         ]
         tss = self.get_tokenized_splits(test_seqs, unroll=1)
-        tokens = self.get_tokens(test_seqs)
 
         batches = BatchBuilder([self.ivec_app_ctor(ts) for ts in tss], 2, discard_h=False)
         batches = iter(batches)
@@ -408,7 +469,7 @@ class BatchBuilderTest(TestCase):
             torch.LongTensor([[1], [1]]),
             torch.LongTensor([[2], [1]]),
             torch.stack([self.ivec_eetor(" ".join(words[:-1])) for words in [test_seqs[0], test_seqs[2]]]),
-            torch.LongTensor([0,1]),
+            torch.LongTensor([0, 1]),
         )
 
         self.assertEqual(batch, expectation)
