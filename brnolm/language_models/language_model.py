@@ -84,4 +84,17 @@ class LanguageModel(torch.nn.Module):
         return all_nlllh * mask
 
     def get_custom_h0_provider(self, prefix):
-        return self.model.init_hidden
+        if not prefix:
+            return self.model.init_hidden
+
+        prefix_ids = [self.vocab[c] for c in prefix]
+        device = self.device
+
+        prefix_tensor = torch.tensor(prefix_ids).view(1, -1).to(device)
+
+        def h0_provider(batch_size):
+            h0 = self.model.init_hidden(batch_size)
+            _, h = self.model(torch.cat([prefix_tensor]*batch_size, axis=0), h0)
+            return h
+
+        return h0_provider
