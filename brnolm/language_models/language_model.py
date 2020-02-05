@@ -59,9 +59,12 @@ class LanguageModel(torch.nn.Module):
 
         return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist()
 
-    def batch_nll_idxs(self, idxs, predict_first=True):
+    def batch_nll_idxs(self, idxs, predict_first=True, h0_provider=None):
         '''Provides the negative log-probability of a batch of sequences of indexes
         '''
+        if h0_provider is None:
+            h0_provider = self.model.init_hidden
+
         device = self.device
         input, target, mask = masked_tensor_from_sentences(idxs, device=device)
         batch_size = input.shape[0]
@@ -73,7 +76,7 @@ class LanguageModel(torch.nn.Module):
             batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
             mask = torch.cat([batch_of_ones, mask], dim=1)
 
-        h0 = self.model.init_hidden(batch_size)
+        h0 = h0_provider(batch_size)
         o, _ = self.model(input, h0)
         if predict_first:
             o0 = h0[0][0].unsqueeze(1)
