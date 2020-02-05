@@ -82,3 +82,6 @@ class LanguageModel(torch.nn.Module):
         all_nlllh = self.decoder.neg_log_prob_raw(o, target)
 
         return all_nlllh * mask
+
+    def get_custom_h0_provider(self, prefix):
+        return self.model.init_hidden
