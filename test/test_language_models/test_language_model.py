@@ -3,6 +3,8 @@ import os
 
 import torch
 
+import test.common
+
 from brnolm.language_models.lstm_model import LSTMLanguageModel
 from brnolm.language_models.decoders import FullSoftmaxDecoder
 from brnolm.language_models.language_model import LanguageModel
@@ -127,3 +129,41 @@ class CUDA_BatchNLLCorrectnessTests(unittest.TestCase, BatchNLLCorrectnessTestsB
         model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
         decoder = FullSoftmaxDecoder(10, len(vocab))
         self.lm = LanguageModel(model, decoder, vocab).to('cuda')
+
+
+class CustomInitialHiddenStateTestsBase:
+    '''Inhereted test classes must provide self.lm.
+    '''
+    def test_no_prefix(self):
+        h0_provider = self.lm.get_custom_h0_provider([])
+        self.assertEqual(h0_provider(2), self.lm.model.init_hidden(2))
+
+    def test_single_item_prefix(self):
+        h0_provider = self.lm.get_custom_h0_provider(['a'])
+        batch_size = 2
+
+        prefix_ind = self.lm.vocab['a']
+        x = torch.tensor([[prefix_ind]]*batch_size)
+        _, expected_h0 = self.lm.model(x, self.lm.model.init_hidden(batch_size))
+
+        self.assertEqual(h0_provider(batch_size), expected_h0)
+
+    def test_multi_item_prefix(self):
+        prefix = 'a b c a'
+        h0_provider = self.lm.get_custom_h0_provider(prefix.split())
+        batch_size = 3
+
+        prefix_inds = [self.lm.vocab[w] for w in prefix.split()]
+        x = torch.tensor([prefix_inds]*batch_size)
+        _, expected_h0 = self.lm.model(x, self.lm.model.init_hidden(batch_size))
+
+        self.assertEqual(h0_provider(batch_size), expected_h0)
+
+
+class CPU_CustomInitialHiddenStateTests(test.common.TestCase, CustomInitialHiddenStateTestsBase):
+    def setUp(self):
+        vocab = Vocabulary('<unk>', 0)
+        vocab.add_from_text('a b c')
+        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        decoder = FullSoftmaxDecoder(10, len(vocab))
+        self.lm = LanguageModel(model, decoder, vocab)

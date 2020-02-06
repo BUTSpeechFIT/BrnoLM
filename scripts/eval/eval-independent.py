@@ -38,21 +38,14 @@ class IndependentLinesEvaluator:
             self.logger.info(oov_msg)
 
     def evaluate(self, prefix):
-        if prefix:
-            logging.debug('Adding prefixes...')
-            prefix_ind = self.lm.vocab[prefix]
-            if prefix_ind == self.lm.vocab.unk_ind:
-                logging.warning('Warning: prefix translates to unk!')
-
-            prefix = torch.tensor([prefix_ind], dtype=self.lines[0].dtype)
-            lines = [torch.cat([prefix, l]) for l in self.lines]
+        h0_provider = self.lm.get_custom_h0_provider(prefix.split())
 
         loss = 0.0
-        data_stream = OndemandDataProvider(batcher(lines, self.max_batch_size, self.max_tokens), cuda=False)
+        data_stream = OndemandDataProvider(batcher(self.lines, self.max_batch_size, self.max_tokens), cuda=False)
         total_actual_size = 0
         with torch.no_grad():
             for i, batch in enumerate(data_stream):
-                per_line_losses = self.lm.batch_nll_idxs(batch, not prefix)
+                per_line_losses = self.lm.batch_nll_idxs(batch, h0_provider)
                 loss += per_line_losses.sum().detach().item()
                 total_actual_size += per_line_losses.numel()
 
@@ -72,8 +65,6 @@ def main():
                         help='batch size')
     parser.add_argument('--max-tokens', type=int, default=1000, metavar='N',
                         help='Maximal number of softmaxes in a batch')
-    parser.add_argument('--sort-by-len', action='store_true',
-                        help='sort lines by len for better utilization')
 
     parser.add_argument('--seed', type=int, default=1111,
                         help='random seed')

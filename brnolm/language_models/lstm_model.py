@@ -45,6 +45,10 @@ class LSTMLanguageModel(nn.Module):
         return (weight.new_zeros(self.nlayers, bsz, self.nhid),
                 weight.new_zeros(self.nlayers, bsz, self.nhid))
 
+    def extract_output_from_h(self, hidden_state):
+        h = hidden_state[0]  # hidden state is (h, c)
+        return h[-1]  # last layer is the output one
+
 
 class LSTMPLanguageModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""

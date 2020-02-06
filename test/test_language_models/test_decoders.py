@@ -1,4 +1,4 @@
-from .common import TestCase
+from test.common import TestCase
 import torch
 
 from brnolm.language_models.decoders import FullSoftmaxDecoder
