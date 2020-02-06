@@ -65,8 +65,6 @@ def main():
                         help='batch size')
     parser.add_argument('--max-tokens', type=int, default=1000, metavar='N',
                         help='Maximal number of softmaxes in a batch')
-    parser.add_argument('--sort-by-len', action='store_true',
-                        help='sort lines by len for better utilization')
 
     parser.add_argument('--seed', type=int, default=1111,
                         help='random seed')
