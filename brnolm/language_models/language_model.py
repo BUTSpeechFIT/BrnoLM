@@ -36,7 +36,8 @@ class LanguageModel(torch.nn.Module):
         if prefix:
             nll, _ = self.decoder.neg_log_prob(o, tensor[:, 1:])
         else:
-            prepended_o = torch.cat([h0[0][-1].unsqueeze(1), o], dim=1)
+            o0 = self.model.extract_output_from_h(h0).unsqueeze(1)
+            prepended_o = torch.cat([o0, o], dim=1)
             nll, _ = self.decoder.neg_log_prob(prepended_o, tensor)
 
         return nll.item()
@@ -73,7 +74,7 @@ class LanguageModel(torch.nn.Module):
         h0 = h0_provider(batch_size)
         o, _ = self.model(input, h0)
 
-        o0 = h0[0][-1].unsqueeze(1)
+        o0 = self.model.extract_output_from_h(h0).unsqueeze(1)
         o = torch.cat([o0, o], dim=1)
 
         all_nlllh = self.decoder.neg_log_prob_raw(o, target)
