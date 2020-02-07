@@ -1,5 +1,5 @@
 from brnolm.data_pipeline.multistream import BatchBuilder
-from brnolm.data_pipeline.multistream import batcher
+from brnolm.data_pipeline.multistream import Batcher
 import brnolm.data_pipeline.split_corpus_dataset as split_corpus_dataset
 import brnolm.smm_itf.ivec_appenders as ivec_appenders
 
@@ -13,7 +13,7 @@ from test.utils import getStream
 class BatcherTests(TestCase):
     def test_empty_in_set(self):
         in_set = []
-        batch_generator = batcher(in_set, 1)
+        batch_generator = Batcher(in_set, 1)
         self.assertEqual(list(iter(batch_generator)), [])
 
     def test_bs_1(self):
@@ -22,7 +22,7 @@ class BatcherTests(TestCase):
             [2, 3, 4],
             [5, 6],
         ]
-        batch_generator = batcher(in_set, 1)
+        batch_generator = Batcher(in_set, 1)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 3)
         self.assertEqual(batches[0], [[0, 1]])
@@ -35,7 +35,7 @@ class BatcherTests(TestCase):
             [2, 3, 4],
             [5, 6],
         ]
-        batch_generator = batcher(in_set, 2)
+        batch_generator = Batcher(in_set, 2)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 2)
         self.assertEqual(batches[0], [[0, 1], [2, 3, 4]])
@@ -47,7 +47,7 @@ class BatcherTests(TestCase):
             [3, 4],
             [5, 6],
         ]
-        batch_generator = batcher(in_set, 2, max_total_len=5)
+        batch_generator = Batcher(in_set, 2, max_total_len=5)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 2)
         self.assertEqual(batches[0], [[0, 1, 2]])
@@ -62,7 +62,7 @@ class BatcherTests(TestCase):
             [4],
             [5],
         ]
-        batch_generator = batcher(in_set, 2, max_total_len=4)
+        batch_generator = Batcher(in_set, 2, max_total_len=4)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 3)
         self.assertEqual(batches[0], [[0], [1]])
@@ -78,11 +78,22 @@ class BatcherTests(TestCase):
             [4],
             [5],
         ]
-        batch_generator = batcher(in_set, max_total_len=4)
+        batch_generator = Batcher(in_set, max_total_len=4)
         batches = list(iter(batch_generator))
         self.assertEqual(len(batches), 2)
         self.assertEqual(batches[0], [[0], [1], [2], [3]])
         self.assertEqual(batches[1], [[4], [5]])
+
+    def test_repeatable(self):
+        in_set = [
+            [0, 1],
+            [2, 3, 4],
+            [5, 6],
+        ]
+        batch_generator = Batcher(in_set, 2)
+        batches_first = list(iter(batch_generator))
+        batches_second = list(iter(batch_generator))
+        self.assertEqual(batches_first, batches_second)
 
 
 # TODO remove the dependency on TokenizedSplit, ivectors etc.

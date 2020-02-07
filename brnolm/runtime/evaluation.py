@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from brnolm.data_pipeline.reading import get_independent_lines
 from brnolm.data_pipeline.threaded import OndemandDataProvider
-from brnolm.data_pipeline.multistream import batcher
+from brnolm.data_pipeline.multistream import Batcher
 
 import torch
 
@@ -49,7 +49,7 @@ class IndependentLinesEvaluator:
         h0_provider = self.lm.get_custom_h0_provider(prefix.split())
 
         loss = 0.0
-        data_stream = OndemandDataProvider(batcher(self.lines, self.max_batch_size, self.max_tokens), cuda=False)
+        data_stream = OndemandDataProvider(Batcher(self.lines, self.max_batch_size, self.max_tokens), cuda=False)
         total_actual_size = 0
         with torch.no_grad():
             for i, batch in enumerate(data_stream):
