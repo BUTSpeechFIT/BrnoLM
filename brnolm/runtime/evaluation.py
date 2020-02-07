@@ -1,9 +1,22 @@
 import logging
+from dataclasses import dataclass
+
 from brnolm.data_pipeline.reading import get_independent_lines
 from brnolm.data_pipeline.threaded import OndemandDataProvider
 from brnolm.data_pipeline.multistream import batcher
 
 import torch
+
+
+@dataclass
+class EvaluationReport:
+    total_loss: float
+    nb_words: int
+    utilization: float
+
+    @property
+    def loss_per_token(self):
+        return self.total_loss / self.nb_words
 
 
 class IndependentLinesEvaluator:
@@ -45,4 +58,4 @@ class IndependentLinesEvaluator:
                 total_actual_size += per_line_losses.numel()
 
         utilization = self.nb_tokens/total_actual_size
-        return loss, utilization
+        return EvaluationReport(loss, self.nb_tokens, utilization)

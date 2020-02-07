@@ -42,10 +42,10 @@ def main():
     print(lm)
 
     evaluator = IndependentLinesEvaluator(lm, args.data, args.batch_size, args.max_tokens)
-    loss, utilization = evaluator.evaluate(args.prefix)
+    eval_report = evaluator.evaluate(args.prefix)
 
-    print(f'Utilization: {100.0*utilization:.2f} %')
-    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(loss, loss/evaluator.nb_tokens, math.exp(loss/evaluator.nb_tokens)))
+    print(f'Utilization: {100.0*eval_report.utilization:.2f} %')
+    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
 
 
 if __name__ == '__main__':
