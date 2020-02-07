@@ -46,6 +46,7 @@ class IndependentLinesEvaluator:
             self.logger.info(oov_msg)
 
     def evaluate(self, prefix):
+        self.lm.eval()
         h0_provider = self.lm.get_custom_h0_provider(prefix.split())
 
         loss = 0.0
