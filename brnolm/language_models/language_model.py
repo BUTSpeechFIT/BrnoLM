@@ -62,14 +62,8 @@ class LanguageModel(torch.nn.Module):
             h0_provider = self.model.init_hidden
 
         device = self.device
-        input, target, mask = masked_tensor_from_sentences(idxs, device=device)
+        input, target, mask = masked_tensor_from_sentences(idxs, device=device, target_all=True)
         batch_size = input.shape[0]
-
-        first_inputs = input[:, 0].view(-1, 1)
-        target = torch.cat([first_inputs, target], dim=1)
-
-        batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
-        mask = torch.cat([batch_of_ones, mask], dim=1)
 
         h0 = h0_provider(batch_size)
         o, _ = self.model(input, h0)
