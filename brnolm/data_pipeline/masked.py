@@ -2,7 +2,7 @@ from typing import List
 import torch
 
 
-def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=torch.device('cpu')):
+def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=torch.device('cpu'), target_all=False):
     try:
         sentences[0][0]
     except TypeError:
@@ -21,5 +21,12 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=to
             input[s, t] = sentences[s][t]
             target[s, t] = sentences[s][t+1]
             mask[s, t] = 1
+
+    if target_all:
+        first_inputs = input[:, 0].view(-1, 1)
+        target = torch.cat([first_inputs, target], dim=1)
+
+        batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
+        mask = torch.cat([batch_of_ones, mask], dim=1)
 
     return input, target, mask
