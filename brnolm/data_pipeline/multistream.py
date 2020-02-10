@@ -1,6 +1,10 @@
 import torch
 
 
+class LineTooLongError(Exception):
+    pass
+
+
 def batchify(data, bsz, cuda):
     """ For simple rearranging of 'single sentence' data.
     """
@@ -44,9 +48,13 @@ class Batcher:
             j -= 1
 
             if i == j:
-                raise ValueError(f'Failed to construct a batch on line {i} (zero-based)')
+                raise LineTooLongError(f'Failed to construct a batch on line {i} (zero-based)')
 
-            yield self.samples[i:j]
+            batch = self.samples[i:j]
+            assert len(batch) > 0
+            assert sum(len(s) for s in batch) > 0
+
+            yield batch
             i = j
 
 

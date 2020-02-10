@@ -1,5 +1,6 @@
 from brnolm.data_pipeline.multistream import BatchBuilder
 from brnolm.data_pipeline.multistream import Batcher
+from brnolm.data_pipeline.multistream import LineTooLongError
 import brnolm.data_pipeline.split_corpus_dataset as split_corpus_dataset
 import brnolm.smm_itf.ivec_appenders as ivec_appenders
 
@@ -94,6 +95,14 @@ class BatcherTests(TestCase):
         batches_first = list(iter(batch_generator))
         batches_second = list(iter(batch_generator))
         self.assertEqual(batches_first, batches_second)
+
+    def test_raises_on_too_long(self):
+        in_set = [
+            [0, 1, 2],
+        ]
+        batch_generator = Batcher(in_set, max_total_len=2)
+        iterator = iter(batch_generator)
+        self.assertRaises(LineTooLongError, next, iterator)
 
 
 # TODO remove the dependency on TokenizedSplit, ivectors etc.
