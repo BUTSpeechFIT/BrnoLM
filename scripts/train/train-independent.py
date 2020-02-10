@@ -13,7 +13,7 @@ from brnolm.data_pipeline.multistream import Batcher
 from brnolm.runtime.runtime_utils import init_seeds, epoch_summary
 from brnolm.runtime.evaluation import IndependentLinesEvaluator
 
-# from brnolm.runtime.loggers import ProgressLogger
+from brnolm.runtime.loggers import InfinityLogger
 from brnolm.runtime.reporting import ValidationWatcher
 
 
@@ -87,7 +87,7 @@ def main():
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
     for epoch in range(1, args.epochs + 1):
-        # logger = ProgressLogger(epoch, args.log_interval, lr, len(train_batched) // args.target_seq_len)
+        logger = InfinityLogger(epoch, args.log_interval, lr)
 
         nb_batches = 0
         nb_tokens = 0
@@ -112,11 +112,11 @@ def main():
             torch.nn.utils.clip_grad_norm(lm.parameters(), args.clip)
 
             optim.step()
-            # logger.log(loss.data)
+            logger.log(loss.data)
 
         val_loss = evaluator.evaluate('').loss_per_token
         print(f'epoch {epoch}: {nb_batches} batches, train loss {running_loss:.1f}, running PPL {math.exp(running_loss/nb_tokens):.2f}, val PPL {math.exp(val_loss):.2f}, {time.time() - t0:.1f} sec')
-        # print(epoch_summary(epoch, logger.nb_updates(), logger.time_since_creation(), val_loss))
+        print(epoch_summary(epoch, logger.nb_updates(), logger.time_since_creation(), val_loss))
 
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
