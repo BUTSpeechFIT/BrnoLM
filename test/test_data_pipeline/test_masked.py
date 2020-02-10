@@ -176,3 +176,27 @@ class MaskedDataCreationTests(TestCase):
         self.assertEqual(x, e_input)
         self.assertEqual(t, e_target)
         self.assertEqual(m, e_mask)
+
+    def test_single_token_multi_token(self):
+        sentences = [
+            [0],
+            [1, 2],
+        ]
+        x, t, m = masked_tensor_from_sentences(sentences, target_all=True)
+
+        e_input = tensor([
+            [0],
+            [1],
+        ])
+        e_target = tensor([
+            [0, 0],
+            [1, 2],
+        ])
+        e_mask = tensor([
+            [1, 0],
+            [1, 1],
+        ])
+
+        self.assertEqual(x, e_input)
+        self.assertEqual(t, e_target)
+        self.assertEqual(m, e_mask)
