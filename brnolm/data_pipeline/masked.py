@@ -12,9 +12,10 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=to
     max_len = max(len(s) for s in sentences)
 
     shape = (batch_size, max_len-1)
-    input = torch.zeros(shape, dtype=torch.int64).to(device)
-    target = torch.zeros(shape, dtype=torch.int64).to(device)
-    mask = torch.zeros(shape, dtype=torch.int64).to(device)
+    dtype = torch.int64
+    input = torch.zeros(shape, dtype=dtype, device=device)
+    target = torch.zeros(shape, dtype=dtype, device=device)
+    mask = torch.zeros(shape, dtype=dtype, device=device)
 
     for s in range(len(sentences)):
         for t in range(len(sentences[s]) - 1):
@@ -23,7 +24,7 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=to
             mask[s, t] = 1
 
     if target_all:
-        first_inputs = torch.tensor([s[0] for s in sentences], dtype=torch.int64, device=device)
+        first_inputs = torch.tensor([s[0] for s in sentences], dtype=dtype, device=device)
         target = torch.cat([first_inputs.view(-1, 1), target], dim=1)
 
         batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
