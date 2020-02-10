@@ -161,16 +161,16 @@ class MaskedDataCreationTests(TestCase):
         x, t, m = masked_tensor_from_sentences(sentences, target_all=True)
 
         e_input = tensor([
-            [],
-            [],
+            [0],
+            [0],
         ])
         e_target = tensor([
-            [0],
-            [1],
+            [0, 0],
+            [1, 0],
         ])
         e_mask = tensor([
-            [1],
-            [1],
+            [1, 0],
+            [1, 0],
         ])
 
         self.assertEqual(x, e_input)

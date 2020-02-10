@@ -30,4 +30,10 @@ def masked_tensor_from_sentences(sentences: List[List[int]], filler=0, device=to
         batch_of_ones = torch.ones((batch_size, 1), dtype=mask.dtype, device=mask.device)
         mask = torch.cat([batch_of_ones, mask], dim=1)
 
+    if input.shape[1] == 0:
+        batch_of_zeros = torch.zeros((batch_size, 1), dtype=mask.dtype, device=mask.device)
+        mask = torch.cat([mask, batch_of_zeros], dim=1)
+        input = batch_of_zeros.clone().detach()
+        target = torch.cat([target, batch_of_zeros], dim=1)
+
     return input, target, mask
