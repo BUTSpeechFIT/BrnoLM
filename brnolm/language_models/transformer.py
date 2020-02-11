@@ -57,7 +57,7 @@ def generate_square_subsequent_mask(sz):
 class TransformerLM(nn.Module):
     '''Adapted from PyTorch-examples
     '''
-    def __init__(self, vocab_size, nb_heads, dim_res, dim_ff, nb_layers, dropout=0.5):
+    def __init__(self, vocab_size, nb_heads, dim_res, dim_ff, nb_layers, dropout):
         super().__init__()
         self.src_mask = None
         self.encoder = nn.Embedding(vocab_size, dim_res)
