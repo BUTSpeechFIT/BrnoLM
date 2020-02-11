@@ -57,14 +57,16 @@ def generate_square_subsequent_mask(sz):
 class TransformerLM(nn.Module):
     '''Adapted from PyTorch-examples
     '''
-    def __init__(self, ntoken, nhead, nhid, nlayers, dropout=0.5):
+    def __init__(self, vocab_size, nb_heads, dim_res, dim_ff, nb_layers, dropout=0.5):
         super().__init__()
         self.src_mask = None
-        self.pos_encoder = PositionalEncoding(nhid, dropout)
-        encoder_layers = TransformerEncoderLayer(nhid, nhead, nhid, dropout)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Embedding(ntoken, nhid)
-        self.nhid = nhid
+        self.encoder = nn.Embedding(vocab_size, dim_res)
+        self.pos_encoder = PositionalEncoding(dim_res, dropout)
+
+        layer_norm = nn.LayerNorm(dim_res)
+        encoder_layers = TransformerEncoderLayer(dim_res, nb_heads, dim_res, dim_ff, dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, nb_layers, layer_norm)
+        self.dim_res = dim_res
 
         self.init_weights()
         self.in_len = 1
@@ -85,7 +87,7 @@ class TransformerLM(nn.Module):
             mask = generate_square_subsequent_mask(len(src)).to(device)
             self.src_mask = mask
 
-        src = self.encoder(src) * math.sqrt(self.nhid)
+        src = self.encoder(src) * math.sqrt(self.dim_res)
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, self.src_mask)
 
