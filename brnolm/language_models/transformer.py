@@ -48,7 +48,15 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+def generate_square_subsequent_mask(sz):
+    mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+    mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+    return mask
+
+
 class TransformerLM(nn.Module):
+    '''Adapted from PyTorch-examples
+    '''
     def __init__(self, ntoken, nhead, nhid, nlayers, dropout=0.5):
         super().__init__()
         self.src_mask = None
@@ -66,11 +74,6 @@ class TransformerLM(nn.Module):
         w = next(self.parameters())
         return torch.zeros((batch_size, 1), dtype=w.dtype, device=w.device)
 
-    def _generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
@@ -79,7 +82,7 @@ class TransformerLM(nn.Module):
         src = src.t()
         device = src.device
         if self.src_mask is None or self.src_mask.size(0) != len(src):
-            mask = self._generate_square_subsequent_mask(len(src)).to(device)
+            mask = generate_square_subsequent_mask(len(src)).to(device)
             self.src_mask = mask
 
         src = self.encoder(src) * math.sqrt(self.nhid)
