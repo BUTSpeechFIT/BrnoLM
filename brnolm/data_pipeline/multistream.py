@@ -1,6 +1,10 @@
 import torch
 
 
+class LineTooLongError(Exception):
+    pass
+
+
 def batchify(data, bsz, cuda):
     """ For simple rearranging of 'single sentence' data.
     """
@@ -15,33 +19,43 @@ def batchify(data, bsz, cuda):
     return data
 
 
-def batcher(samples, max_batch_size=None, max_total_len=None):
+class Batcher:
     """Groups sequences in a list into batches
     """
-    def batch_size_ok(i, j):
-        if not max_batch_size:
+    def __init__(self, samples, max_batch_size=None, max_total_len=None):
+        self.max_batch_size = max_batch_size
+        self.max_total_len = max_total_len
+        self.samples = samples
+
+    def _batch_size_ok(self, i, j):
+        if not self.max_batch_size:
             return True
 
-        return (j-i) <= max_batch_size
+        return (j-i) <= self.max_batch_size
 
-    def total_len_ok(i, j):
-        if not max_total_len:
+    def _total_len_ok(self, i, j):
+        if not self.max_total_len:
             return True
 
-        return max((len(t) for t in samples[i:j]), default=0) * (j-i) <= max_total_len
+        return max((len(t) for t in self.samples[i:j]), default=0) * (j-i) <= self.max_total_len
 
-    i = 0
-    while i < len(samples):
-        j = i
-        while j <= len(samples) and batch_size_ok(i, j) and total_len_ok(i, j):
-            j += 1
-        j -= 1
+    def __iter__(self):
+        i = 0
+        while i < len(self.samples):
+            j = i
+            while j <= len(self.samples) and self._batch_size_ok(i, j) and self._total_len_ok(i, j):
+                j += 1
+            j -= 1
 
-        if i == j:
-            raise ValueError(f'Failed to construct a batch on line {i} (zero-based)')
+            if i == j:
+                raise LineTooLongError(f'Failed to construct a batch on line {i} (zero-based)')
 
-        yield samples[i:j]
-        i = j
+            batch = self.samples[i:j]
+            assert len(batch) > 0
+            assert sum(len(s) for s in batch) > 0
+
+            yield batch
+            i = j
 
 
 class BatchBuilder():

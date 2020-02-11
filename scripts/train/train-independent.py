@@ -2,17 +2,18 @@
 
 import argparse
 import math
+import random
 import torch
+import time
 
-from brnolm.data_pipeline.reading import tokens_from_fn
-from brnolm.data_pipeline.multistream import batchify
-from brnolm.data_pipeline.temporal_splitting import TemporalSplits
+from brnolm.data_pipeline.reading import get_independent_lines
 from brnolm.data_pipeline.threaded import OndemandDataProvider
+from brnolm.data_pipeline.multistream import Batcher
 
-from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds, epoch_summary
-from brnolm.runtime.runtime_multifile import evaluate_, repackage_hidden
+from brnolm.runtime.runtime_utils import init_seeds, epoch_summary
+from brnolm.runtime.evaluation import IndependentLinesEvaluator
 
-from brnolm.runtime.loggers import ProgressLogger
+from brnolm.runtime.loggers import InfinityLogger
 from brnolm.runtime.reporting import ValidationWatcher
 
 
@@ -22,15 +23,13 @@ def main():
                         help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
-    parser.add_argument('--characters', action='store_true',
-                        help='work on character level, whitespace is significant')
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
-    parser.add_argument('--batch-size', type=int, default=20, metavar='N',
-                        help='batch size')
-    parser.add_argument('--target-seq-len', type=int, default=35,
-                        help='sequence length')
+    parser.add_argument('--max-batch-size', type=int, default=20,
+                        help='maxiamal batch size')
+    parser.add_argument('--max-softmaxes', type=int, default=1000,
+                        help='maximal number of softmaxes in a single batch')
 
     parser.add_argument('--lr', type=float, default=20,
                         help='initial learning rate')
@@ -66,58 +65,44 @@ def main():
         lm.cuda()
     print(lm.model)
 
-    tokenize_regime = 'words'
-    if args.characters:
-        tokenize_regime = 'chars'
-
     print("preparing training data...")
-    train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
-    train_batched = batchify(train_ids, args.batch_size, cuda=False)
-    train_data_tb = TemporalSplits(
-        train_batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    train_data = TransposeWrapper(train_data_tb)
-    train_data_stream = OndemandDataProvider(train_data, args.cuda)
+    with open(args.train) as f:
+        train_lines = get_independent_lines(f, lm.vocab)
 
-    print("preparing validation data...")
-    valid_ids = tokens_from_fn(args.valid, lm.vocab, randomize=False, regime=tokenize_regime)
-    valid_batched = batchify(valid_ids, 10, args.cuda)
-    valid_data_tb = TemporalSplits(
-        valid_batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    valid_data = TransposeWrapper(valid_data_tb)
+    nb_train_tokens = sum(len(ids) for ids in train_lines)
+    nb_oovs = sum(sum(ids == lm.vocab.unk_ind).detach().item() for ids in train_lines)
+    print('Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, nb_train_tokens, 100.0 * nb_oovs/nb_train_tokens))
 
-    def val_loss_fn(lm):
-        return evaluate_(lm, valid_data, use_ivecs=False, custom_batches=False)
+    evaluator = IndependentLinesEvaluator(lm, args.valid, args.max_batch_size, args.max_softmaxes)
 
     print("computing initial PPL...")
-    initial_val_loss = val_loss_fn(lm)
-    print('Initial perplexity {:.2f}'.format(math.exp(initial_val_loss)))
+    initial_evaluation = evaluator.evaluate('')
+    print('Initial perplexity {:.2f}'.format(math.exp(initial_evaluation.loss_per_token)))
 
     print("training...")
     lr = args.lr
     best_val_loss = None
 
-    val_watcher = ValidationWatcher(lambda: val_loss_fn(lm), initial_val_loss, args.val_interval, args.workdir, lm)
+    val_watcher = ValidationWatcher(lambda: evaluator.evaluate('').loss_per_token, initial_evaluation.loss_per_token, args.val_interval, args.workdir, lm)
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
     for epoch in range(1, args.epochs + 1):
-        logger = ProgressLogger(epoch, args.log_interval, lr, len(train_batched) // args.target_seq_len)
+        logger = InfinityLogger(epoch, args.log_interval, lr)
 
-        hidden = None
-        for X, targets in train_data_stream:
-            if hidden is None:
-                hidden = lm.model.init_hidden(args.batch_size)
+        nb_batches = 0
+        nb_tokens = 0
+        running_loss = 0.0
+        t0 = time.time()
 
-            hidden = repackage_hidden(hidden)
-
+        random.shuffle(train_lines)
+        train_data_stream = OndemandDataProvider(Batcher(train_lines, args.max_batch_size, args.max_softmaxes), cuda=False)
+        for batch in train_data_stream:
+            nb_batches += 1
             lm.train()
-            output, hidden = lm.model(X, hidden)
-            loss, nb_words = lm.decoder.neg_log_prob(output, targets)
+            loss = lm.batch_nll_idxs(batch).sum()
+            running_loss += loss.detach().item()
+            nb_words = sum(len(s) for s in batch)
+            nb_tokens += nb_words
             loss /= nb_words
 
             val_watcher.log_training_update(loss.data, nb_words)
@@ -129,7 +114,8 @@ def main():
             optim.step()
             logger.log(loss.data)
 
-        val_loss = val_loss_fn(lm)
+        val_loss = evaluator.evaluate('').loss_per_token
+        print(f'epoch {epoch}: {nb_batches} batches, train loss {running_loss:.1f}, running PPL {math.exp(running_loss/nb_tokens):.2f}, val PPL {math.exp(val_loss):.2f}, {time.time() - t0:.1f} sec')
         print(epoch_summary(epoch, logger.nb_updates(), logger.time_since_creation(), val_loss))
 
         # Save the model if the validation loss is the best we've seen so far.
