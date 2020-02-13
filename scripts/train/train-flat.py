@@ -92,6 +92,7 @@ def main():
     valid_data = TransposeWrapper(valid_data_tb)
 
     def val_loss_fn(lm):
+        lm.eval()
         return evaluate_(lm, valid_data, use_ivecs=False, custom_batches=False)
 
     print("computing initial PPL...")
