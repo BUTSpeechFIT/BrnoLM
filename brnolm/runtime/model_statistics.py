@@ -1,3 +1,12 @@
+def scaled_int_str(value):
+    if value < 1000:
+        return f'{value}'
+    elif value < 1000000:
+        return f'{value/1000:.1f}k'
+    else:
+        return f'{value/1000000:.1f}M'
+
+
 class ModelStatistics:
     def __init__(self, model):
         self.model = model
