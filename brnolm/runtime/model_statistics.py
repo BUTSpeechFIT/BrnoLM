@@ -8,6 +8,10 @@ class ModelStatistics:
     def nb_trainable_params(self):
         return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
+    def trainable_params_breakup(self):
+        per_param_desc = (f'{name} {p.numel()}\n' for name, p in self.model.named_parameters() if p.requires_grad)
+        return ''.join(per_param_desc)
+
     def nb_nontrainable_params(self):
         return sum(p.numel() for p in self.model.parameters() if not p.requires_grad)
 
@@ -16,4 +20,4 @@ class ModelStatistics:
         nb_params_desc = f'Total number of parameters: {self.total_nb_params()/1000000:.2f}M\n'
         nb_trainable_desc = f'Number of trainable parameters: {self.nb_trainable_params()/1000000:.2f}M\n'
         nb_nontrainable_desc = f'Number of nontrainable parameters: {self.nb_nontrainable_params()/1000000:.2f}M\n'
-        return torch_desc + nb_params_desc + nb_trainable_desc + nb_nontrainable_desc
+        return torch_desc + nb_params_desc + nb_trainable_desc + nb_nontrainable_desc + self.trainable_params_breakup()
