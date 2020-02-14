@@ -36,7 +36,7 @@ class ValidationWatcher:
             running_ppl = math.exp(self.running_loss / self.running_updates)
             val_ppl = math.exp(val_loss)
 
-            desc = '{} updates: {:.1f} {:.1f} {:.2f}\n'.format(
+            desc = '{} updates: {:.2f} {:.2f} {:.3f}\n'.format(
                 self.nb_total_updates, running_ppl, val_ppl, val_ppl - running_ppl
             )
             with open(self.report_fn, 'a') as f:
