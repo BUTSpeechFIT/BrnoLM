@@ -64,7 +64,7 @@ class TransformerLM(nn.Module):
         self.pos_encoder = PositionalEncoding(dim_res, dropout)
 
         layer_norm = nn.LayerNorm(dim_res)
-        encoder_layers = TransformerEncoderLayer(dim_res, nb_heads, dim_res, dim_ff, dropout)
+        encoder_layers = TransformerEncoderLayer(dim_res, nb_heads, dim_ff, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nb_layers, layer_norm)
         self.dim_res = dim_res
 
