@@ -15,13 +15,15 @@ if __name__ == '__main__':
                         help='assume the words are quoted (with a single quote)')
     parser.add_argument('--unk', type=str, default="<unk>",
                         help='expected form of "unk" word. Most likely a <UNK> or <unk>')
-    parser.add_argument('--nhid', type=int, default=200,
-                        help='number of hidden units per layer')
-    parser.add_argument('--nlayers', type=int, default=2,
+    parser.add_argument('--dim-residual', type=int,
+                        help='Dimension of most of the model')
+    parser.add_argument('--dim-ff', type=int,
+                        help='Dimension of the feed-forwad layers')
+    parser.add_argument('--nb-layers', type=int,
                         help='number of layers')
-    parser.add_argument('--nheads', type=int, default=2,
+    parser.add_argument('--nb-heads', type=int,
                         help='number of layers')
-    parser.add_argument('--dropout', type=float, default=0.2,
+    parser.add_argument('--dropout', type=float, default=0.0,
                         help='dropout applied to layers (0 = no dropout)')
     parser.add_argument('--tied', action='store_true',
                         help='tie the word embedding and softmax weights')
@@ -30,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=str, required=True,
                         help='path to save the final model')
     args = parser.parse_args()
+    print(args)
 
     # Set the random seed manually for reproducibility.
     torch.manual_seed(args.seed)
@@ -47,12 +50,15 @@ if __name__ == '__main__':
     print("building model...")
 
     model = transformer.TransformerLM(
-        len(vocabulary),
-        args.nheads, args.nhid, args.nlayers,
-        args.dropout
+        vocab_size=len(vocabulary),
+        nb_heads=args.nb_heads,
+        dim_res=args.dim_residual,
+        dim_ff=args.dim_ff,
+        nb_layers=args.nb_layers,
+        dropout=args.dropout,
     )
 
-    decoder = FullSoftmaxDecoder(args.nhid, len(vocabulary))
+    decoder = FullSoftmaxDecoder(args.dim_residual, len(vocabulary))
 
     lm = language_model.LanguageModel(model, decoder, vocabulary)
     torch.save(lm, args.save)
