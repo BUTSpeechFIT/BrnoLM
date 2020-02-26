@@ -84,6 +84,9 @@ def vocab_from_kaldi_wordlist_base(f, unk_word, word_re, remove_quotes):
             w = w[1:-1]
         i = int(m.group('ind'))
         assert i >= 0
+
+        if w in d:
+            raise ValueError(f'Attempt to redefince "{w}" to {i}, while it already has {d[w]} assigned')
         d[w] = i
 
     try:

@@ -167,6 +167,15 @@ class VocabFromKaldiTests(unittest.TestCase):
         self.assertEqual(vocabulary['b'], 7)
         self.assertEqual(vocabulary['nonexistent'], 0)
 
+    def test_duplicate(self):
+        kaldi_vocab = StringIO(""" <unk> 0
+                                    a 1
+                                    b 2
+                                    a 3 """)
+        with self.assertRaises(ValueError):
+            vocab.vocab_from_kaldi_wordlist(kaldi_vocab, "<unk>")
+
+
     def test_malformed_line(self):
         kaldi_vocab = StringIO(""" a 0 junk
                                     <unk> 1
