@@ -24,10 +24,10 @@ def dict_to_list(utts_map):
 def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
     words = [latt_vocab.i2w(i) for i in word_ids]
     if mode == 'words':
-        return tokens_to_pythlm(words, model_vocab)
+        return words + ['</s>']
     elif mode == 'chars':
-        sentence = " ".join(words)
-        return tokens_to_pythlm(list(sentence), model_vocab)
+        chars = list(" ".join(words))
+        return chars + ['</s>']
     else:
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
@@ -51,7 +51,6 @@ def process_segment(lm, seg_name, seg_hyps, out_f):
     nb_uniq_scores = len(set(y))
     logging.info(f"{seg_name}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
 
-    # write
     for i, log_p in enumerate(y):
         out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
 
