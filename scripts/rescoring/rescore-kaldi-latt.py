@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import torch
 
 import brnolm.language_models.vocab as vocab
@@ -51,21 +52,21 @@ def main():
     parser.add_argument('out_filename', help='where to put the LM scores')
     args = parser.parse_args()
 
-    print(args)
+    logging.basicConfig(level=logging.INFO)
+    logging.info(args)
 
     mode = 'chars' if args.character_lm else 'words'
 
-    print("reading lattice vocab...")
+    logging.info("reading lattice vocab...")
     with open(args.latt_vocab, 'r') as f:
         latt_vocab = vocab.vocab_from_kaldi_wordlist(f, unk_word=args.latt_unk)
 
-    print("reading model...")
+    logging.info("reading model...")
     lm = torch.load(args.model_from, map_location='cpu')
     if args.cuda:
         lm.model.cuda()
     lm.model.eval()
 
-    print("scoring...")
     curr_seg = ''
     segment_utts: typing.Dict[str, typing.Any] = {}
 
@@ -81,6 +82,12 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
+                nb_hyps = len(segment_utts)
+                min_len = min(len(hyp) for hyp in segment_utts.values())
+                max_len = max(len(hyp) for hyp in segment_utts.values())
+                total_len = sum(len(hyp) for hyp in segment_utts.values())
+                nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in segment_utts.values())
+                logging.info(f"{curr_seg}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
                 X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
                 y = lm.batch_nll(X, prefix='</s>')
 
