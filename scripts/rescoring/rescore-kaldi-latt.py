@@ -11,16 +11,6 @@ import typing
 import brnolm.kaldi_itf
 
 
-def dict_to_list(utts_map):
-    list_of_lists = []
-    rev_map = {}
-    for key in utts_map:
-        rev_map[len(list_of_lists)] = key
-        list_of_lists.append(utts_map[key])
-
-    return list_of_lists, rev_map
-
-
 def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
     words = [latt_vocab.i2w(i) for i in word_ids]
     if mode == 'words':
@@ -32,19 +22,33 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-def process_segment(lm, seg_name, seg_hyps, out_f):
-    nb_hyps = len(seg_hyps)
-    min_len = min(len(hyp) for hyp in seg_hyps.values())
-    max_len = max(len(hyp) for hyp in seg_hyps.values())
-    total_len = sum(len(hyp) for hyp in seg_hyps.values())
-    nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in seg_hyps.values())
-    logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
+class SegmentScorer:
+    def __init__(self, lm, out_f):
+        self.lm = lm
+        self.out_f = out_f
 
-    X, rev_map = dict_to_list(seg_hyps)  # reform the word sequences
-    y = lm.batch_nll(X, prefix='</s>')
+    def process_segment(self, seg_name, seg_hyps):
+        nb_hyps = len(seg_hyps)
+        min_len = min(len(hyp) for hyp in seg_hyps.values())
+        max_len = max(len(hyp) for hyp in seg_hyps.values())
+        total_len = sum(len(hyp) for hyp in seg_hyps.values())
+        nb_oovs = sum(sum(token == self.lm.vocab.unk_word for token in hyp) for hyp in seg_hyps.values())
+        logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
 
-    for i, log_p in enumerate(y):
-        out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
+        X, rev_map = self.dict_to_list(seg_hyps)  # reform the word sequences
+        y = self.lm.batch_nll(X, prefix='</s>')
+
+        for i, log_p in enumerate(y):
+            self.out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
+
+    def dict_to_list(self, utts_map):
+        list_of_lists = []
+        rev_map = {}
+        for key in utts_map:
+            rev_map[len(list_of_lists)] = key
+            list_of_lists.append(utts_map[key])
+
+        return list_of_lists, rev_map
 
 
 def main():
@@ -82,6 +86,8 @@ def main():
     segment_utts: typing.Dict[str, typing.Any] = {}
 
     with open(args.in_filename) as in_f, open(args.out_filename, 'w') as out_f:
+        scorer = SegmentScorer(lm, out_f)
+
         for line in in_f:
             fields = line.split()
             segment, trans_id = brnolm.kaldi_itf.split_nbest_key(fields[0])
@@ -93,7 +99,7 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
-                process_segment(lm, curr_seg, segment_utts, out_f)
+                scorer.process_segment(curr_seg, segment_utts)
 
                 curr_seg = segment
                 segment_utts = {}
@@ -101,7 +107,7 @@ def main():
             segment_utts[trans_id] = ids
 
         # Last segment:
-        process_segment(lm, curr_seg, segment_utts, out_f)
+        scorer.process_segment(curr_seg, segment_utts)
 
 
 if __name__ == '__main__':
