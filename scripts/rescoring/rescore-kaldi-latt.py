@@ -53,7 +53,7 @@ def process_segment(lm, seg_name, seg_hyps, out_f):
 
     # write
     for i, log_p in enumerate(y):
-        out_f.write(seg_name + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
+        out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
 
 
 def main():
