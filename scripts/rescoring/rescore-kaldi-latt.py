@@ -36,6 +36,26 @@ def tokens_to_pythlm(toks, vocab):
     return [vocab.w2i(tok) for tok in toks] + [vocab.w2i("</s>")]
 
 
+def process_segment(lm, seg_name, seg_hyps, out_f):
+    nb_hyps = len(seg_hyps)
+    min_len = min(len(hyp) for hyp in seg_hyps.values())
+    max_len = max(len(hyp) for hyp in seg_hyps.values())
+    total_len = sum(len(hyp) for hyp in seg_hyps.values())
+    nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in seg_hyps.values())
+    logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
+
+    X, rev_map = dict_to_list(seg_hyps)  # reform the word sequences
+    y = lm.batch_nll(X, prefix='</s>')
+
+    nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in seg_hyps.values()))
+    nb_uniq_scores = len(set(y))
+    logging.info(f"{seg_name}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
+
+    # write
+    for i, log_p in enumerate(y):
+        out_f.write(seg_name + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--latt-vocab', type=str, required=True,
@@ -82,25 +102,7 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
-                if curr_seg != 'P05_S02-0007011-0007297':  # debug on a single
-                    continue
-
-                nb_hyps = len(segment_utts)
-                min_len = min(len(hyp) for hyp in segment_utts.values())
-                max_len = max(len(hyp) for hyp in segment_utts.values())
-                total_len = sum(len(hyp) for hyp in segment_utts.values())
-                nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in segment_utts.values())
-                logging.info(f"{curr_seg}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
-                X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-                y = lm.batch_nll(X, prefix='</s>')
-
-                nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in segment_utts.values()))
-                nb_uniq_scores = len(set(y))
-                logging.info(f"{curr_seg}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
-
-                # write
-                for i, log_p in enumerate(y):
-                    out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
+                process_segment(lm, curr_seg, segment_utts, out_f)
 
                 curr_seg = segment
                 segment_utts = {}
@@ -108,23 +110,7 @@ def main():
             segment_utts[trans_id] = ids
 
         # Last segment:
-        nb_hyps = len(segment_utts)
-        min_len = min(len(hyp) for hyp in segment_utts.values())
-        max_len = max(len(hyp) for hyp in segment_utts.values())
-        total_len = sum(len(hyp) for hyp in segment_utts.values())
-        nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in segment_utts.values())
-        logging.info(f"{curr_seg}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
-
-        X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-        y = lm.batch_nll(X, prefix='</s>')
-
-        nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in segment_utts.values()))
-        nb_uniq_scores = len(set(y))
-        logging.info(f"{curr_seg}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
-
-        # write
-        for i, log_p in enumerate(y):
-            out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
+        process_segment(lm, curr_seg, segment_utts, out_f)
 
 
 if __name__ == '__main__':
