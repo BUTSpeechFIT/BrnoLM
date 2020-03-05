@@ -10,18 +10,6 @@ import typing
 import brnolm.kaldi_itf
 
 
-def seqs_to_tensor(seqs):
-    batch_size = len(seqs)
-    maxlen = max([len(seq) for seq in seqs])
-
-    ids = torch.LongTensor(batch_size, maxlen).zero_()
-    for seq_n, seq in enumerate(seqs):
-        for word_n, word in enumerate(seq):
-            ids[seq_n, word_n] = word
-
-    return ids
-
-
 def dict_to_list(utts_map):
     list_of_lists = []
     rev_map = {}
@@ -43,44 +31,8 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-def pick_ys(y, seq_x):
-    seqs_ys = []
-    for seq_n, seq in enumerate(seq_x):
-        seq_ys = [1.0]  # hard 1.0 for the 'sure' <s>
-        for w_n, w in enumerate(seq[1:]):  # skipping the initial element ^^^
-            seq_ys.append(y[w_n, seq_n, w])
-        seqs_ys.append(seq_ys)
-
-    return seqs_ys
-
-
-def seqs_logprob(seqs, lm):
-    ''' Sequence as a list of integers
-    '''
-    data = seqs_to_tensor(seqs)
-    batch_size = data.size(0)
-
-    if not lm.model.batch_first:
-        data = data.t().contiguous()
-
-    if next(lm.model.parameters()).is_cuda:
-        data = data.cuda()
-
-    X = data
-    h0 = lm.model.init_hidden(batch_size)
-
-    o, _ = lm.model(X, h0)
-    y = lm.decoder(o)
-    y = y.detach()  # extract the Tensor out of the Variable
-
-    word_log_scores = pick_ys(y, seqs)
-    seq_log_scores = [sum(seq) for seq in word_log_scores]
-
-    return seq_log_scores
-
-
 def tokens_to_pythlm(toks, vocab):
-    return [vocab.w2i('<s>')] + [vocab.w2i(tok) for tok in toks] + [vocab.w2i("</s>")]
+    return [vocab.w2i(tok) for tok in toks] + [vocab.w2i("</s>")]
 
 
 def main():
@@ -130,11 +82,11 @@ def main():
 
             if segment != curr_seg:
                 X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-                y = seqs_logprob(X, lm)  # score
+                y = lm.batch_nll(X, prefix='</s>')
 
                 # write
                 for i, log_p in enumerate(y):
-                    out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p.item()) + '\n')
+                    out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
 
                 curr_seg = segment
                 segment_utts = {}
@@ -143,11 +95,11 @@ def main():
 
         # Last segment:
         X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-        y = seqs_logprob(X, lm)  # score
+        y = lm.batch_nll(X, prefix='</s>')
 
         # write
         for i, log_p in enumerate(y):
-            out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p.item()) + '\n')
+            out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p) + '\n')
 
 
 if __name__ == '__main__':
