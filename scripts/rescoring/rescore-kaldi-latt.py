@@ -77,10 +77,10 @@ def main():
         latt_vocab = vocab.vocab_from_kaldi_wordlist(f, unk_word=args.latt_unk)
 
     logging.info("reading model...")
-    lm = torch.load(args.model_from, map_location='cpu')
-    if args.cuda:
-        lm.model.cuda()
-    lm.model.eval()
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.model_from, map_location=device)
+
+    lm.eval()
 
     curr_seg = ''
     segment_utts: typing.Dict[str, typing.Any] = {}
