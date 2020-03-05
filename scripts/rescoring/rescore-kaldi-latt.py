@@ -32,10 +32,6 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-def tokens_to_pythlm(toks, vocab):
-    return [vocab.w2i(tok) for tok in toks] + [vocab.w2i("</s>")]
-
-
 def process_segment(lm, seg_name, seg_hyps, out_f):
     nb_hyps = len(seg_hyps)
     min_len = min(len(hyp) for hyp in seg_hyps.values())
@@ -46,10 +42,6 @@ def process_segment(lm, seg_name, seg_hyps, out_f):
 
     X, rev_map = dict_to_list(seg_hyps)  # reform the word sequences
     y = lm.batch_nll(X, prefix='</s>')
-
-    nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in seg_hyps.values()))
-    nb_uniq_scores = len(set(y))
-    logging.info(f"{seg_name}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
 
     for i, log_p in enumerate(y):
         out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
