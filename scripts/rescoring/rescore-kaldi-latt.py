@@ -52,7 +52,7 @@ def main():
     parser.add_argument('out_filename', help='where to put the LM scores')
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logging.info(args)
 
     mode = 'chars' if args.character_lm else 'words'
@@ -82,6 +82,9 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
+                if curr_seg != 'P05_S02-0007011-0007297':  # debug on a single
+                    continue
+
                 nb_hyps = len(segment_utts)
                 min_len = min(len(hyp) for hyp in segment_utts.values())
                 max_len = max(len(hyp) for hyp in segment_utts.values())
@@ -90,6 +93,10 @@ def main():
                 logging.info(f"{curr_seg}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
                 X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
                 y = lm.batch_nll(X, prefix='</s>')
+
+                nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in segment_utts.values()))
+                nb_uniq_scores = len(set(y))
+                logging.info(f"{curr_seg}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
 
                 # write
                 for i, log_p in enumerate(y):
@@ -101,8 +108,19 @@ def main():
             segment_utts[trans_id] = ids
 
         # Last segment:
+        nb_hyps = len(segment_utts)
+        min_len = min(len(hyp) for hyp in segment_utts.values())
+        max_len = max(len(hyp) for hyp in segment_utts.values())
+        total_len = sum(len(hyp) for hyp in segment_utts.values())
+        nb_oovs = sum(sum(token == lm.vocab.unk_ind for token in hyp) for hyp in segment_utts.values())
+        logging.info(f"{curr_seg}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
+
         X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
         y = lm.batch_nll(X, prefix='</s>')
+
+        nb_uniq_hyp = len(set(' '.join(str(i) for i in hyp) for hyp in segment_utts.values()))
+        nb_uniq_scores = len(set(y))
+        logging.info(f"{curr_seg}: {nb_uniq_hyp} unique hyps, {nb_uniq_scores} unique LM scores ")
 
         # write
         for i, log_p in enumerate(y):
