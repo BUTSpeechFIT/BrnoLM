@@ -10,6 +10,30 @@ from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 
 from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds
 from brnolm.runtime.runtime_multifile import repackage_hidden
+from brnolm.runtime.evaluation import EvaluationReport
+
+
+class EnblockEvaluator:
+    def __init__(self, lm, data):
+        self.data = data
+
+    def evaluate(self):
+        lm.eval()
+
+        total_loss = 0.0
+        total_timesteps = 0
+        hidden = lm.model.init_hidden(args.batch_size)
+
+        for X, targets in self.data:
+            hidden = repackage_hidden(hidden)
+
+            output, hidden = lm.model(X, hidden)
+            loss, nb_words = lm.decoder.neg_log_prob(output, targets)
+
+            total_loss += loss.data
+            total_timesteps += nb_words
+
+        return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
 
 
 if __name__ == '__main__':
@@ -60,22 +84,7 @@ if __name__ == '__main__':
     nb_oovs = oov_mask.sum()
     print('Nb oovs: {} ({:.2f} %)\n'.format(nb_oovs, 100.0 * nb_oovs/len(ids)))
 
-    # Run on test data.
-    lm.eval()
+    evaluator = EnblockEvaluator(lm, data)
+    eval_report = evaluator.evaluate()
 
-    total_loss = 0.0
-    total_timesteps = 0
-    hidden = lm.model.init_hidden(args.batch_size)
-
-    for X, targets in data:
-        hidden = repackage_hidden(hidden)
-
-        output, hidden = lm.model(X, hidden)
-        loss, nb_words = lm.decoder.neg_log_prob(output, targets)
-
-        total_loss += loss.data
-        total_timesteps += nb_words
-
-    loss = total_loss.item() / total_timesteps
-
-    print('loss {:5.2f} | ppl {:8.2f}'.format(loss, math.exp(loss)))
+    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
