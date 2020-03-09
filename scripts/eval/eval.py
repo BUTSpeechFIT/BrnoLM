@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import math
 import torch
 
@@ -14,11 +15,22 @@ from brnolm.runtime.evaluation import EvaluationReport
 
 
 class EnblockEvaluator:
-    def __init__(self, lm, data_fn):
+    def __init__(self, lm, data_fn, logger=None):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger('IndependentLinesEvaluator')
+
         ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
-        nb_oovs = oov_mask.sum()
-        print('Nb oovs: {} ({:.2f} %)\n'.format(nb_oovs, 100.0 * nb_oovs/len(ids)))
+        nb_oovs = oov_mask.sum().item()
+
+        nb_tokens = len(ids)
+        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, len(ids), 100.0 * nb_oovs/nb_tokens)
+        if nb_oovs / nb_tokens > 0.05:
+            self.logger.warning(oov_msg)
+        else:
+            self.logger.info(oov_msg)
 
         batched = batchify(ids, 10, args.cuda)
         data_tb = TemporalSplits(
@@ -48,6 +60,7 @@ class EnblockEvaluator:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='[%(levelname)s::%(name)s] %(message)s')
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--data', type=str, required=True,
                         help='location of the data corpus')
