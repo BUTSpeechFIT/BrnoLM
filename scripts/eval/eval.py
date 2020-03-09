@@ -9,7 +9,7 @@ from brnolm.data_pipeline.multistream import batchify
 from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 
 from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds
-from brnolm.runtime.runtime_multifile import evaluate_
+from brnolm.runtime.runtime_multifile import repackage_hidden
 
 
 if __name__ == '__main__':
@@ -62,9 +62,26 @@ if __name__ == '__main__':
     print('Nb oovs: {} ({:.2f} %)\n'.format(nb_oovs, 100.0 * nb_oovs/len(ids)))
 
     # Run on test data.
-    loss = evaluate_(
-        lm, data,
-        use_ivecs=False,
-        custom_batches=False,
-    )
+    lm.eval()
+
+    total_loss = 0.0
+    total_timesteps = 0
+
+    hidden = None
+    do_transpose = not lm.model.batch_first
+
+    for X, targets in data:
+        if hidden is None:
+            hidden = lm.model.init_hidden(args.batch_size)
+
+        hidden = repackage_hidden(hidden)
+
+        output, hidden = lm.model(X, hidden)
+
+        loss, nb_words = lm.decoder.neg_log_prob(output, targets)
+        total_loss += loss.data
+        total_timesteps += nb_words
+
+    loss = total_loss.item() / total_timesteps
+
     print('loss {:5.2f} | ppl {:8.2f}'.format(loss, math.exp(loss)))
