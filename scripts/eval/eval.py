@@ -38,9 +38,8 @@ if __name__ == '__main__':
     init_seeds(args.seed, args.cuda)
 
     print("loading model...")
-    lm = torch.load(args.load, map_location='cpu')
-    if args.cuda:
-        lm.cuda()
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.load, map_location=device)
     print(lm)
 
     print("preparing data...")
@@ -66,19 +65,14 @@ if __name__ == '__main__':
 
     total_loss = 0.0
     total_timesteps = 0
-
-    hidden = None
-    do_transpose = not lm.model.batch_first
+    hidden = lm.model.init_hidden(args.batch_size)
 
     for X, targets in data:
-        if hidden is None:
-            hidden = lm.model.init_hidden(args.batch_size)
-
         hidden = repackage_hidden(hidden)
 
         output, hidden = lm.model(X, hidden)
-
         loss, nb_words = lm.decoder.neg_log_prob(output, targets)
+
         total_loss += loss.data
         total_timesteps += nb_words
 
