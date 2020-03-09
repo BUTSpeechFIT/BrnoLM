@@ -23,9 +23,10 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
 
 
 class SegmentScorer:
-    def __init__(self, lm, out_f):
+    def __init__(self, lm, out_f, max_softmaxes=2000):
         self.lm = lm
         self.out_f = out_f
+        self.max_softmaxes = max_softmaxes
 
     def process_segment(self, seg_name, seg_hyps):
         nb_hyps = len(seg_hyps)
@@ -36,10 +37,10 @@ class SegmentScorer:
         logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
 
         X, rev_map = self.dict_to_list(seg_hyps)  # reform the word sequences
-        y = self.lm.batch_nll(X, prefix='</s>')
+        y = self.get_scores(X)
 
         for i, log_p in enumerate(y):
-            self.out_f.write(f"{seg_name}-{rev_map[i]} {str(-log_p)}\n")
+            self.out_f.write(f"{seg_name}-{rev_map[i]} {str(log_p)}\n")
 
     def dict_to_list(self, utts_map):
         list_of_lists = []
@@ -49,6 +50,29 @@ class SegmentScorer:
             list_of_lists.append(utts_map[key])
 
         return list_of_lists, rev_map
+
+    def get_scores(self, hyps):
+        work_left = [hyps]
+        ys = []
+
+        while work_left:
+            batch = work_left.pop(0)
+            try:
+                if len(batch) * max(len(s) for s in batch) > self.max_softmaxes:
+                    raise RuntimeError("Preemptive, batch is {len(batch)}x{max(len(s) for s in batch)}")
+                this_batch_ys = self.lm.batch_nll(batch, prefix='</s>')
+                ys.extend(this_batch_ys)
+            except RuntimeError as e:
+                cuda_memory_error = 'CUDA out of memory' in str(e)
+                cpu_memory_error = "can't allocate memory" in str(e)
+                preemtive_memory_error = "Preemptive" in str(e)
+                assert cuda_memory_error or cpu_memory_error or preemtive_memory_error
+                midpoint = len(batch) // 2
+                assert midpoint > 0
+                first, second = batch[:midpoint], batch[midpoint:]
+                work_left.insert(0, second)
+                work_left.insert(0, first)
+        return ys
 
 
 def main():
