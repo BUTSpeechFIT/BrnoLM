@@ -14,8 +14,19 @@ from brnolm.runtime.evaluation import EvaluationReport
 
 
 class EnblockEvaluator:
-    def __init__(self, lm, data):
-        self.data = data
+    def __init__(self, lm, data_fn):
+        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
+        oov_mask = ids == lm.vocab.unk_ind
+        nb_oovs = oov_mask.sum()
+        print('Nb oovs: {} ({:.2f} %)\n'.format(nb_oovs, 100.0 * nb_oovs/len(ids)))
+
+        batched = batchify(ids, 10, args.cuda)
+        data_tb = TemporalSplits(
+            batched,
+            nb_inputs_necessary=lm.model.in_len,
+            nb_targets_parallel=args.target_seq_len
+        )
+        self.data = TransposeWrapper(data_tb)
 
     def evaluate(self):
         lm.eval()
@@ -42,8 +53,6 @@ if __name__ == '__main__':
                         help='location of the data corpus')
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
-    parser.add_argument('--characters', action='store_true',
-                        help='work on character level, whitespace is significant')
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
@@ -66,25 +75,7 @@ if __name__ == '__main__':
     lm = torch.load(args.load, map_location=device)
     print(lm)
 
-    print("preparing data...")
-    tokenize_regime = 'words'
-    if args.characters:
-        tokenize_regime = 'chars'
-
-    ids = tokens_from_fn(args.data, lm.vocab, randomize=False, regime=tokenize_regime)
-    batched = batchify(ids, 10, args.cuda)
-    data_tb = TemporalSplits(
-        batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    data = TransposeWrapper(data_tb)
-
-    oov_mask = ids == lm.vocab.unk_ind
-    nb_oovs = oov_mask.sum()
-    print('Nb oovs: {} ({:.2f} %)\n'.format(nb_oovs, 100.0 * nb_oovs/len(ids)))
-
-    evaluator = EnblockEvaluator(lm, data)
+    evaluator = EnblockEvaluator(lm, args.data)
     eval_report = evaluator.evaluate()
 
     print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
