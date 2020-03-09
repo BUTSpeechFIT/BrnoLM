@@ -5,58 +5,8 @@ import logging
 import math
 import torch
 
-from brnolm.data_pipeline.reading import tokens_from_fn
-from brnolm.data_pipeline.multistream import batchify
-from brnolm.data_pipeline.temporal_splitting import TemporalSplits
-
-from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds
-from brnolm.runtime.runtime_multifile import repackage_hidden
-from brnolm.runtime.evaluation import EvaluationReport
-
-
-class EnblockEvaluator:
-    def __init__(self, lm, data_fn, logger=None):
-        if logger:
-            self.logger = logger
-        else:
-            self.logger = logging.getLogger('IndependentLinesEvaluator')
-
-        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
-        oov_mask = ids == lm.vocab.unk_ind
-        nb_oovs = oov_mask.sum().item()
-
-        nb_tokens = len(ids)
-        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, len(ids), 100.0 * nb_oovs/nb_tokens)
-        if nb_oovs / nb_tokens > 0.05:
-            self.logger.warning(oov_msg)
-        else:
-            self.logger.info(oov_msg)
-
-        batched = batchify(ids, 10, args.cuda)
-        data_tb = TemporalSplits(
-            batched,
-            nb_inputs_necessary=lm.model.in_len,
-            nb_targets_parallel=args.target_seq_len
-        )
-        self.data = TransposeWrapper(data_tb)
-
-    def evaluate(self):
-        lm.eval()
-
-        total_loss = 0.0
-        total_timesteps = 0
-        hidden = lm.model.init_hidden(args.batch_size)
-
-        for X, targets in self.data:
-            hidden = repackage_hidden(hidden)
-
-            output, hidden = lm.model(X, hidden)
-            loss, nb_words = lm.decoder.neg_log_prob(output, targets)
-
-            total_loss += loss.data
-            total_timesteps += nb_words
-
-        return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+from brnolm.runtime.runtime_utils import init_seeds
+from brnolm.runtime.evaluation import EnblockEvaluator
 
 
 if __name__ == '__main__':
@@ -88,7 +38,7 @@ if __name__ == '__main__':
     lm = torch.load(args.load, map_location=device)
     print(lm)
 
-    evaluator = EnblockEvaluator(lm, args.data)
+    evaluator = EnblockEvaluator(lm, args.data, args.batch_size, args.target_seq_len)
     eval_report = evaluator.evaluate()
 
     print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))

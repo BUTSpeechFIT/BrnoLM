@@ -1,9 +1,13 @@
 import logging
 from dataclasses import dataclass
 
-from brnolm.data_pipeline.reading import get_independent_lines
+from brnolm.data_pipeline.reading import get_independent_lines, tokens_from_fn
 from brnolm.data_pipeline.threaded import OndemandDataProvider
-from brnolm.data_pipeline.multistream import Batcher
+from brnolm.data_pipeline.multistream import Batcher, batchify
+from brnolm.data_pipeline.temporal_splitting import TemporalSplits
+
+from brnolm.runtime.runtime_utils import TransposeWrapper
+from brnolm.runtime.runtime_multifile import repackage_hidden
 
 import torch
 
@@ -60,3 +64,50 @@ class IndependentLinesEvaluator:
 
         utilization = self.nb_tokens/total_actual_size
         return EvaluationReport(loss, self.nb_tokens, utilization)
+
+
+class EnblockEvaluator:
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, logger=None):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger('IndependentLinesEvaluator')
+        self.batch_size = batch_size
+        self.lm = lm
+
+        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
+        oov_mask = ids == lm.vocab.unk_ind
+        nb_oovs = oov_mask.sum().item()
+
+        nb_tokens = len(ids)
+        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, len(ids), 100.0 * nb_oovs/nb_tokens)
+        if nb_oovs / nb_tokens > 0.05:
+            self.logger.warning(oov_msg)
+        else:
+            self.logger.info(oov_msg)
+
+        batched = batchify(ids, 10, lm.device == torch.device('cuda:0'))
+        data_tb = TemporalSplits(
+            batched,
+            nb_inputs_necessary=lm.model.in_len,
+            nb_targets_parallel=target_seq_len
+        )
+        self.data = TransposeWrapper(data_tb)
+
+    def evaluate(self):
+        self.lm.eval()
+
+        total_loss = 0.0
+        total_timesteps = 0
+        hidden = self.lm.model.init_hidden(self.batch_size)
+
+        for X, targets in self.data:
+            hidden = repackage_hidden(hidden)
+
+            output, hidden = self.lm.model(X, hidden)
+            loss, nb_words = self.lm.decoder.neg_log_prob(output, targets)
+
+            total_loss += loss.data
+            total_timesteps += nb_words
+
+        return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
