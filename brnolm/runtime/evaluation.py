@@ -86,7 +86,7 @@ class EnblockEvaluator:
         else:
             self.logger.info(oov_msg)
 
-        batched = batchify(ids, 10, lm.device == torch.device('cuda:0'))
+        batched = batchify(ids, batch_size, lm.device == torch.device('cuda:0'))
         data_tb = TemporalSplits(
             batched,
             nb_inputs_necessary=lm.model.in_len,
