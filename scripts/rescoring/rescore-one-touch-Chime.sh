@@ -1,22 +1,22 @@
 work_dir=$1
 n_jobs=$2
 
-pythlm_model=/mnt/matylda5/ibenes/projects/opensat-2019/pashto/finetune_lr-1.0
+pythlm_model=/mnt/matylda5/ibenes/projects/chime6/lms/base-training-workdir/best.lm
 
-kaldi_decode_dir=/mnt/matylda3/karafiat/OpenSAT/2019/Babel_Pashto.v1/exp/chain_MultRDTv1_short/tdnn_lowrank_unconstrained_sp_nleaves2000_new-swbd-cnn/decode_build_dev.seg1_graph_but-web
-kaldi_wordlist=/mnt/matylda3/karafiat/OpenSAT/2019/Babel_Pashto.v1/data/lang_test_but-web/words.txt
+
+kaldi_decode_dir=/mnt/matylda6/izmolikova/CHiME6/ASRDecode/out_decode/decode_dev_gss_bf_noiseclass_2stage
+kaldi_wordlist=/mnt/matylda3/karafiat/BABEL/GIT/Kaldi.cur/egs/chime6/s5_track1/data/lang/words.txt 
 kaldi_unk='<unk>'
-optimal_lmwt=8
-kaldi_eg_dir=/mnt/matylda3/karafiat/OpenSAT/2019/Babel_Pashto.v1
+optimal_lmwt=10
+kaldi_eg_dir=/mnt/matylda3/karafiat/BABEL/GIT/Kaldi.cur/egs/chime6/s5_track1
 
-# lmws="7.0 7.5 8.0 8.5 9.0"
 lmws="9.5 10.0 10.5"
-interpolations="0.0 0.05 0.10 0.15 0.20"
+interpolations="0.0 0.05 0.10"
 
 # data_dir=$kaldi_eg_dir/data/build_dev.seg1  # contains reference transcription
-data_dir=$kaldi_eg_dir/data-hires/build_dev.seg1  # contains reference transcription
-graph_dir=$kaldi_eg_dir/exp/chain_MultRDTv1_short/tree_lowrank_unconstrained_sp_nleaves2000/graph_but-web  # who knows what for...
-old_lm="fstproject --project_output=true $kaldi_eg_dir/data/lang_test_but-web/G.fst |"
+data_dir=$kaldi_eg_dir/data/dev_gss_multiarray_multiarray_hires  # contains reference transcription
+graph_dir=$kaldi_eg_dir/data/lang  # who knows what for...
+old_lm="fstproject --project_output=true $kaldi_eg_dir/data/lang/G.fst |"
 
 mkdir -p $work_dir
 
@@ -54,22 +54,22 @@ mkdir -p $work_dir
 # for ii in $(seq 1 $n_jobs) 
 # do 
 #     scripts/rescoring/rescore-kaldi-latt.py \
-#         --latt-vocab=$kaldi_wordlist \
-#         --latt-unk=$kaldi_unk \
-#         --model-from=$pythlm_model \
+#         --latt-vocab="$kaldi_wordlist" \
+#         --latt-unk="$kaldi_unk" \
+#         --model-from="$pythlm_model" \
 #         $work_dir/$ii.words \
-#         $work_dir/$ii.rnnlm-scores 
+#         $work_dir/$ii.rnnlm-scores  || exit 1
 # done
 
-for lm_w in $lmws
-do
-    for interpolation_lambdas in $interpolations
-    do
-        scripts/rescoring/interpolating-single-mix.sh $work_dir \
-            1.0 $optimal_lmwt $lm_w $interpolation_lambdas \
-            $n_jobs 
-    done
-done
+# for lm_w in $lmws
+# do
+#     for interpolation_lambdas in $interpolations
+#     do
+#         bash scripts/rescoring/interpolating-single-mix.sh $work_dir \
+#             1.0 $optimal_lmwt $lm_w $interpolation_lambdas \
+#             $n_jobs  || exit 1
+#     done
+# done
 
 cd $kaldi_eg_dir
 echo PWD: $PWD

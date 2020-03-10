@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import torch
 
 import brnolm.language_models.vocab as vocab
@@ -10,77 +11,68 @@ import typing
 import brnolm.kaldi_itf
 
 
-def seqs_to_tensor(seqs):
-    batch_size = len(seqs)
-    maxlen = max([len(seq) for seq in seqs])
-
-    ids = torch.LongTensor(batch_size, maxlen).zero_()
-    for seq_n, seq in enumerate(seqs):
-        for word_n, word in enumerate(seq):
-            ids[seq_n, word_n] = word
-
-    return ids
-
-
-def dict_to_list(utts_map):
-    list_of_lists = []
-    rev_map = {}
-    for key in utts_map:
-        rev_map[len(list_of_lists)] = key
-        list_of_lists.append(utts_map[key])
-
-    return list_of_lists, rev_map
-
-
 def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
     words = [latt_vocab.i2w(i) for i in word_ids]
     if mode == 'words':
-        return tokens_to_pythlm(words, model_vocab)
+        return words + ['</s>']
     elif mode == 'chars':
-        sentence = " ".join(words)
-        return tokens_to_pythlm(list(sentence), model_vocab)
+        chars = list(" ".join(words))
+        return chars + ['</s>']
     else:
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-def pick_ys(y, seq_x):
-    seqs_ys = []
-    for seq_n, seq in enumerate(seq_x):
-        seq_ys = [1.0]  # hard 1.0 for the 'sure' <s>
-        for w_n, w in enumerate(seq[1:]):  # skipping the initial element ^^^
-            seq_ys.append(y[w_n, seq_n, w])
-        seqs_ys.append(seq_ys)
+class SegmentScorer:
+    def __init__(self, lm, out_f, max_softmaxes=2000):
+        self.lm = lm
+        self.out_f = out_f
+        self.max_softmaxes = max_softmaxes
 
-    return seqs_ys
+    def process_segment(self, seg_name, seg_hyps):
+        nb_hyps = len(seg_hyps)
+        min_len = min(len(hyp) for hyp in seg_hyps.values())
+        max_len = max(len(hyp) for hyp in seg_hyps.values())
+        total_len = sum(len(hyp) for hyp in seg_hyps.values())
+        nb_oovs = sum(sum(token == self.lm.vocab.unk_word for token in hyp) for hyp in seg_hyps.values())
+        logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
 
+        X, rev_map = self.dict_to_list(seg_hyps)  # reform the word sequences
+        y = self.get_scores(X)
 
-def seqs_logprob(seqs, lm):
-    ''' Sequence as a list of integers
-    '''
-    data = seqs_to_tensor(seqs)
-    batch_size = data.size(0)
+        for i, log_p in enumerate(y):
+            self.out_f.write(f"{seg_name}-{rev_map[i]} {str(log_p)}\n")
 
-    if not lm.model.batch_first:
-        data = data.t().contiguous()
+    def dict_to_list(self, utts_map):
+        list_of_lists = []
+        rev_map = {}
+        for key in utts_map:
+            rev_map[len(list_of_lists)] = key
+            list_of_lists.append(utts_map[key])
 
-    if next(lm.model.parameters()).is_cuda:
-        data = data.cuda()
+        return list_of_lists, rev_map
 
-    X = data
-    h0 = lm.model.init_hidden(batch_size)
+    def get_scores(self, hyps):
+        work_left = [hyps]
+        ys = []
 
-    o, _ = lm.model(X, h0)
-    y = lm.decoder(o)
-    y = y.detach()  # extract the Tensor out of the Variable
-
-    word_log_scores = pick_ys(y, seqs)
-    seq_log_scores = [sum(seq) for seq in word_log_scores]
-
-    return seq_log_scores
-
-
-def tokens_to_pythlm(toks, vocab):
-    return [vocab.w2i('<s>')] + [vocab.w2i(tok) for tok in toks] + [vocab.w2i("</s>")]
+        while work_left:
+            batch = work_left.pop(0)
+            try:
+                if len(batch) * max(len(s) for s in batch) > self.max_softmaxes:
+                    raise RuntimeError("Preemptive, batch is {len(batch)}x{max(len(s) for s in batch)}")
+                this_batch_ys = self.lm.batch_nll(batch, prefix='</s>')
+                ys.extend(this_batch_ys)
+            except RuntimeError as e:
+                cuda_memory_error = 'CUDA out of memory' in str(e)
+                cpu_memory_error = "can't allocate memory" in str(e)
+                preemtive_memory_error = "Preemptive" in str(e)
+                assert cuda_memory_error or cpu_memory_error or preemtive_memory_error
+                midpoint = len(batch) // 2
+                assert midpoint > 0
+                first, second = batch[:midpoint], batch[midpoint:]
+                work_left.insert(0, second)
+                work_left.insert(0, first)
+        return ys
 
 
 def main():
@@ -99,25 +91,27 @@ def main():
     parser.add_argument('out_filename', help='where to put the LM scores')
     args = parser.parse_args()
 
-    print(args)
+    logging.basicConfig(level=logging.DEBUG)
+    logging.info(args)
 
     mode = 'chars' if args.character_lm else 'words'
 
-    print("reading lattice vocab...")
+    logging.info("reading lattice vocab...")
     with open(args.latt_vocab, 'r') as f:
         latt_vocab = vocab.vocab_from_kaldi_wordlist(f, unk_word=args.latt_unk)
 
-    print("reading model...")
-    lm = torch.load(args.model_from, map_location='cpu')
-    if args.cuda:
-        lm.model.cuda()
-    lm.model.eval()
+    logging.info("reading model...")
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.model_from, map_location=device)
 
-    print("scoring...")
+    lm.eval()
+
     curr_seg = ''
     segment_utts: typing.Dict[str, typing.Any] = {}
 
     with open(args.in_filename) as in_f, open(args.out_filename, 'w') as out_f:
+        scorer = SegmentScorer(lm, out_f)
+
         for line in in_f:
             fields = line.split()
             segment, trans_id = brnolm.kaldi_itf.split_nbest_key(fields[0])
@@ -129,12 +123,7 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
-                X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-                y = seqs_logprob(X, lm)  # score
-
-                # write
-                for i, log_p in enumerate(y):
-                    out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p.item()) + '\n')
+                scorer.process_segment(curr_seg, segment_utts)
 
                 curr_seg = segment
                 segment_utts = {}
@@ -142,12 +131,7 @@ def main():
             segment_utts[trans_id] = ids
 
         # Last segment:
-        X, rev_map = dict_to_list(segment_utts)  # reform the word sequences
-        y = seqs_logprob(X, lm)  # score
-
-        # write
-        for i, log_p in enumerate(y):
-            out_f.write(curr_seg + '-' + rev_map[i] + ' ' + str(-log_p.item()) + '\n')
+        scorer.process_segment(curr_seg, segment_utts)
 
 
 if __name__ == '__main__':
