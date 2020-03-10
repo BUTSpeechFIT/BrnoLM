@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import math
 import torch
 
@@ -10,13 +11,15 @@ from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
 
 from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds, epoch_summary
-from brnolm.runtime.runtime_multifile import evaluate_, repackage_hidden
+from brnolm.runtime.runtime_multifile import repackage_hidden
+from brnolm.runtime.evaluation import EnblockEvaluator
 
 from brnolm.runtime.loggers import ProgressLogger
 from brnolm.runtime.reporting import ValidationWatcher
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='[%(levelname)s::%(name)s] %(message)s')
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', type=str, required=True,
                         help='location of the train corpus')
@@ -82,28 +85,20 @@ def main():
     train_data_stream = OndemandDataProvider(train_data, args.cuda)
 
     print("preparing validation data...")
-    valid_ids = tokens_from_fn(args.valid, lm.vocab, randomize=False, regime=tokenize_regime)
-    valid_batched = batchify(valid_ids, 10, args.cuda)
-    valid_data_tb = TemporalSplits(
-        valid_batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    valid_data = TransposeWrapper(valid_data_tb)
+    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len)
 
-    def val_loss_fn(lm):
-        lm.eval()
-        return evaluate_(lm, valid_data, use_ivecs=False, custom_batches=False)
+    def val_loss_fn():
+        return evaluator.evaluate().loss_per_token
 
     print("computing initial PPL...")
-    initial_val_loss = val_loss_fn(lm)
+    initial_val_loss = val_loss_fn()
     print('Initial perplexity {:.2f}'.format(math.exp(initial_val_loss)))
 
     print("training...")
     lr = args.lr
     best_val_loss = None
 
-    val_watcher = ValidationWatcher(lambda: val_loss_fn(lm), initial_val_loss, args.val_interval, args.workdir, lm)
+    val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm)
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
     for epoch in range(1, args.epochs + 1):
@@ -130,7 +125,7 @@ def main():
             optim.step()
             logger.log(loss.data)
 
-        val_loss = val_loss_fn(lm)
+        val_loss = val_loss_fn()
         print(epoch_summary(epoch, logger.nb_updates(), logger.time_since_creation(), val_loss))
 
         # Save the model if the validation loss is the best we've seen so far.
