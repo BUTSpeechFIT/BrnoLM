@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 import logging
 import typing
+import torch
 
 
 @dataclass
 class SegmentScoringResult:
     scores: typing.Dict[str, float]
+    hidden_states: typing.List[torch.Tensor]
 
 
 class SegmentScorer:
@@ -26,7 +28,8 @@ class SegmentScorer:
         y = self.get_scores(X)
 
         return SegmentScoringResult(
-            {rev_map[i]: lm_cost for i, lm_cost in enumerate(y)}
+            {rev_map[i]: lm_cost for i, lm_cost in enumerate(y)},
+            [None for _ in y],
         )
 
     def dict_to_list(self, utts_map):
