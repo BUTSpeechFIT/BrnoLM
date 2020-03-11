@@ -1,4 +1,11 @@
+from dataclasses import dataclass
 import logging
+import typing
+
+
+@dataclass
+class SegmentScoringResult:
+    scores: typing.Dict[str, float]
 
 
 class SegmentScorer:
@@ -18,8 +25,9 @@ class SegmentScorer:
         X, rev_map = self.dict_to_list(seg_hyps)  # reform the word sequences
         y = self.get_scores(X)
 
-        for i, log_p in enumerate(y):
-            self.out_f.write(f"{seg_name}-{rev_map[i]} {str(log_p)}\n")
+        return SegmentScoringResult(
+            {rev_map[i]: lm_cost for i, lm_cost in enumerate(y)}
+        )
 
     def dict_to_list(self, utts_map):
         list_of_lists = []

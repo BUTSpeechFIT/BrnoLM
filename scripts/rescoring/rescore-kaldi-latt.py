@@ -71,7 +71,9 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
-                scorer.process_segment(curr_seg, segment_utts)
+                result = scorer.process_segment(curr_seg, segment_utts)
+                for hyp_no, cost in result.scores.items():
+                    out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
 
                 curr_seg = segment
                 segment_utts = {}
@@ -79,7 +81,9 @@ def main():
             segment_utts[trans_id] = ids
 
         # Last segment:
-        scorer.process_segment(curr_seg, segment_utts)
+        result = scorer.process_segment(curr_seg, segment_utts)
+        for hyp_no, cost in result.scores.items():
+            out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
 
 
 if __name__ == '__main__':
