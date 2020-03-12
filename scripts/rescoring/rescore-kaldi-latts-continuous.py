@@ -23,6 +23,12 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
+# for LSTMs
+def h0_provider(single_h, batch_size):
+    h, c = single_h
+    return (torch.stack([h]*batch_size), torch.stack([h]*batch_size))
+
+
 def main():
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--latt-vocab', type=str, required=True,
