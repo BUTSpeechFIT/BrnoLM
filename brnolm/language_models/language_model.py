@@ -2,6 +2,23 @@ import torch
 from brnolm.data_pipeline.masked import masked_tensor_from_sentences
 
 
+# these helper functions are being developed against an LSTM implementation
+# It's ugly, but necessary for Chime. To be made nice later :-)
+
+def detach_hidden_state(h):
+    if isinstance(h, tuple):
+        return tuple(detach_hidden_state(x) for x in h)
+    elif isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return TypeError('Cannot process hidden state represented as {type(h)}')
+
+
+def split_batch_hidden_state(hidden_state):
+    h, c = hidden_state
+    return [(h[:, i, :], c[:, i, :]) for i in range(h.shape[1])]
+
+
 class LanguageModel(torch.nn.Module):
     def __init__(self, model, decoder, vocab):
         super().__init__()
@@ -55,7 +72,20 @@ class LanguageModel(torch.nn.Module):
 
         return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist()
 
-    def batch_nll_idxs(self, idxs, h0_provider=None):
+    def batch_nll_with_h(self, sentences, prefix):
+        '''Provides the negative log-probability of a batch of sequences of tokens
+        '''
+        if not sentences:
+            return [], []
+
+        idx_seqs = [[self.vocab[w] for w in s] for s in sentences]
+
+        h0_provider = self.get_custom_h0_provider(prefix)
+        masked_nlllh, h = self.batch_nll_idxs(idx_seqs, h0_provider=h0_provider, return_h=True)
+
+        return masked_nlllh.sum(dim=1).detach().cpu().numpy().tolist(), detach_hidden_state(h)
+
+    def batch_nll_idxs(self, idxs, h0_provider=None, return_h=False):
         '''Provides the negative log-probability of a batch of sequences of indexes
         '''
         if h0_provider is None:
@@ -66,14 +96,17 @@ class LanguageModel(torch.nn.Module):
         batch_size = input.shape[0]
 
         h0 = h0_provider(batch_size)
-        o, _ = self.model(input, h0)
+        o, new_h = self.model(input, h0)
 
         o0 = self.model.extract_output_from_h(h0).unsqueeze(1)
         o = torch.cat([o0, o], dim=1)
 
         all_nlllh = self.decoder.neg_log_prob_raw(o, target)
 
-        return all_nlllh * mask
+        if return_h:
+            return all_nlllh * mask, new_h
+        else:
+            return all_nlllh * mask
 
     def get_custom_h0_provider(self, prefix):
         if not prefix:
