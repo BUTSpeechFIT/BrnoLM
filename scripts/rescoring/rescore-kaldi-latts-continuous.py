@@ -23,10 +23,8 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-# for LSTMs
-def h0_provider(single_h, batch_size):
-    h, c = single_h
-    return (torch.stack([h]*batch_size), torch.stack([h]*batch_size))
+def select_hidden_state_to_pass(hidden_states):
+    return hidden_states['1']
 
 
 def main():
@@ -63,6 +61,8 @@ def main():
     curr_seg = ''
     segment_utts: typing.Dict[str, typing.Any] = {}
 
+    custom_h0 = None
+
     with open(args.in_filename) as in_f, open(args.out_filename, 'w') as out_f:
         scorer = SegmentScorer(lm, out_f)
 
@@ -77,7 +77,8 @@ def main():
                 curr_seg = segment
 
             if segment != curr_seg:
-                result = scorer.process_segment(curr_seg, segment_utts)
+                result = scorer.process_segment(curr_seg, segment_utts, custom_h0)
+                custom_h0 = select_hidden_state_to_pass(result.hidden_states)
                 for hyp_no, cost in result.scores.items():
                     out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
 
