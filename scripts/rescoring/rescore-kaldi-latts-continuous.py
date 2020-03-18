@@ -27,12 +27,18 @@ def select_hidden_state_to_pass(hidden_states):
     return hidden_states['1']
 
 
+def spk_sess(segment_name):
+    return segment_name.split('-')[0].split('_')
+
+
 def main():
     parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
     parser.add_argument('--latt-vocab', type=str, required=True,
                         help='word -> int map; Kaldi style "words.txt"')
     parser.add_argument('--latt-unk', type=str, default='<unk>',
                         help='unk symbol used in the lattice')
+    parser.add_argument('--carry-over', default='always', choices=['always', 'speaker'],
+                        help='When to use the previous hidden state')
     parser.add_argument('--cuda', action='store_true',
                         help='use CUDA')
     parser.add_argument('--character-lm', action='store_true',
@@ -62,6 +68,8 @@ def main():
     segment_utts: typing.Dict[str, typing.Any] = {}
 
     custom_h0 = None
+    nb_carry_overs = 0
+    nb_new_hs = 0
 
     with open(args.in_filename) as in_f, open(args.out_filename, 'w') as out_f:
         scorer = SegmentScorer(lm, out_f)
@@ -78,7 +86,18 @@ def main():
 
             if segment != curr_seg:
                 result = scorer.process_segment(curr_seg, segment_utts, custom_h0)
-                custom_h0 = select_hidden_state_to_pass(result.hidden_states)
+                if args.carry_over == 'always':
+                    custom_h0 = select_hidden_state_to_pass(result.hidden_states)
+                    nb_carry_overs += 1
+                elif args.carry_over == 'speaker':
+                    if spk_sess(segment) == spk_sess(curr_seg):
+                        custom_h0 = select_hidden_state_to_pass(result.hidden_states)
+                        nb_carry_overs += 1
+                    else:
+                        custom_h0 = None
+                        nb_new_hs += 1
+                else:
+                    raise ValueError(f'Unsupported carry over regime {args.carry_over}')
                 for hyp_no, cost in result.scores.items():
                     out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
 
@@ -91,6 +110,8 @@ def main():
         result = scorer.process_segment(curr_seg, segment_utts)
         for hyp_no, cost in result.scores.items():
             out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
+
+    logging.info(f'Hidden state was carried over {nb_carry_overs} times and reset {nb_new_hs} times')
 
 
 if __name__ == '__main__':
