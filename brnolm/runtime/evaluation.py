@@ -50,6 +50,11 @@ class IndependentLinesEvaluator:
         else:
             self.logger.info(oov_msg)
 
+        self.oov_cost_applicator = OovCostApplicator(
+            0.0,
+            lm.vocab.unk_ind,
+        )
+
     def evaluate(self, prefix):
         self.lm.eval()
         h0_provider = self.lm.get_custom_h0_provider(prefix.split())
@@ -60,6 +65,8 @@ class IndependentLinesEvaluator:
         with torch.no_grad():
             for i, batch in enumerate(data_stream):
                 per_line_losses = self.lm.batch_nll_idxs(batch, h0_provider)
+                for i, (idxs, losses) in enumerate(zip(batch, per_line_losses)):
+                    per_line_losses[i] = self.oov_cost_applicator(idxs, losses)
                 loss += per_line_losses.sum().detach().item()
                 total_actual_size += per_line_losses.numel()
 
