@@ -39,3 +39,10 @@ class OovCostApplicatorTests(TestCase):
         losses = torch.tensor([0.3, 0.5, 0.7, 0.0])
         adjusted_losses = torch.tensor([1.3, 0.5, 0.7, 0.0])
         self.assertEqual(self.cost_applier(line_ids, losses), adjusted_losses)
+
+    def test_zero_penalty(self):
+        zero_applier = OovCostApplicator(0.0, 0)
+        line_ids = torch.tensor([0, 2, 1])
+        losses = torch.tensor([0.3, 0.5, 0.7, 0.0])
+        adjusted_losses = torch.tensor([0.3, 0.5, 0.7, 0.0])
+        self.assertEqual(zero_applier(line_ids, losses), adjusted_losses)

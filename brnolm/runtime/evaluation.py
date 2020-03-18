@@ -61,7 +61,6 @@ class IndependentLinesEvaluator:
             for i, batch in enumerate(data_stream):
                 per_line_losses = self.lm.batch_nll_idxs(batch, h0_provider)
                 loss += per_line_losses.sum().detach().item()
-                breakpoint()
                 total_actual_size += per_line_losses.numel()
 
         utilization = self.nb_tokens/total_actual_size
@@ -126,6 +125,9 @@ class OovCostApplicator:
         self.unk_ind = unk_ind
 
     def __call__(self, ids, losses):
+        if self.oov_penalty == 0.0:
+            return losses
+
         unk_mask = ids == self.unk_ind
         zero_padding = torch.zeros(
             (len(losses) - len(ids),),
