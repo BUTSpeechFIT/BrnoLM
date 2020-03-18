@@ -61,6 +61,7 @@ class IndependentLinesEvaluator:
             for i, batch in enumerate(data_stream):
                 per_line_losses = self.lm.batch_nll_idxs(batch, h0_provider)
                 loss += per_line_losses.sum().detach().item()
+                breakpoint()
                 total_actual_size += per_line_losses.numel()
 
         utilization = self.nb_tokens/total_actual_size
@@ -117,3 +118,19 @@ class EnblockEvaluator:
 def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
     nb_oovs_uncovered = total_vocab_size - lm_vocab_size
     return math.log(nb_oovs_uncovered)
+
+
+class OovCostApplicator:
+    def __init__(self, oov_penalty, unk_ind):
+        self.oov_penalty = oov_penalty
+        self.unk_ind = unk_ind
+
+    def __call__(self, ids, losses):
+        unk_mask = ids == self.unk_ind
+        zero_padding = torch.zeros(
+            (len(losses) - len(ids),),
+            dtype=unk_mask.dtype, device=unk_mask.device
+        )
+        unk_mask = torch.cat([unk_mask, zero_padding])
+
+        return losses + unk_mask*self.oov_penalty
