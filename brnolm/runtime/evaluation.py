@@ -105,9 +105,9 @@ class EnblockEvaluator:
             hidden = repackage_hidden(hidden)
 
             output, hidden = self.lm.model(X, hidden)
-            loss, nb_words = self.lm.decoder.neg_log_prob(output, targets)
+            losses = self.lm.decoder.neg_log_prob_raw(output, targets)
 
-            total_loss += loss.data
-            total_timesteps += nb_words
+            total_loss += losses.sum().detach()
+            total_timesteps += targets.numel()
 
         return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
