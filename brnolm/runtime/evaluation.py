@@ -135,7 +135,7 @@ class OovCostApplicator:
         if self.oov_penalty == 0.0:
             return losses
 
-        unk_mask = ids == self.unk_ind
+        unk_mask = (ids == self.unk_ind).to(losses.device)
         zero_padding = torch.zeros(
             (len(losses) - len(ids),),
             dtype=unk_mask.dtype, device=unk_mask.device
