@@ -16,6 +16,8 @@ def main():
                         help='location of the data corpus')
     parser.add_argument('--prefix', type=str,
                         help='')
+    parser.add_argument('--total-vocab-size', type=int,
+                        help='how many words should be assumed to exist overall')
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
@@ -41,7 +43,13 @@ def main():
         lm.cuda()
     print(lm)
 
-    evaluator = IndependentLinesEvaluator(lm, args.data, args.batch_size, args.max_tokens)
+    evaluator = IndependentLinesEvaluator(
+        lm=lm,
+        fn_evalset=args.data,
+        max_batch_size=args.batch_size,
+        max_tokens=args.max_tokens,
+        total_vocab_size=args.total_vocab_size
+    )
     eval_report = evaluator.evaluate(args.prefix)
 
     print(f'Utilization: {100.0*eval_report.utilization:.2f} %')

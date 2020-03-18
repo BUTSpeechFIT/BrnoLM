@@ -25,7 +25,7 @@ class EvaluationReport:
 
 
 class IndependentLinesEvaluator:
-    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens, logger=None):
+    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens, logger=None, total_vocab_size=None):
         if logger:
             self.logger = logger
         else:
@@ -51,7 +51,7 @@ class IndependentLinesEvaluator:
             self.logger.info(oov_msg)
 
         self.oov_cost_applicator = OovCostApplicator(
-            0.0,
+            get_oov_additional_cost(len(self.lm.vocab), total_vocab_size) if total_vocab_size else 0.0,
             lm.vocab.unk_ind,
         )
 
