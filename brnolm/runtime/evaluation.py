@@ -1,4 +1,5 @@
 import logging
+import math
 from dataclasses import dataclass
 
 from brnolm.data_pipeline.reading import get_independent_lines, tokens_from_fn
@@ -111,3 +112,8 @@ class EnblockEvaluator:
             total_timesteps += targets.numel()
 
         return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+
+
+def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
+    nb_oovs_uncovered = total_vocab_size - lm_vocab_size
+    return math.log(nb_oovs_uncovered)
