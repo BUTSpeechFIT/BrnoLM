@@ -1,4 +1,5 @@
 import logging
+import math
 from dataclasses import dataclass
 
 from brnolm.data_pipeline.reading import get_independent_lines, tokens_from_fn
@@ -24,7 +25,7 @@ class EvaluationReport:
 
 
 class IndependentLinesEvaluator:
-    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens, logger=None):
+    def __init__(self, lm, fn_evalset, max_batch_size, max_tokens, logger=None, total_vocab_size=None):
         if logger:
             self.logger = logger
         else:
@@ -49,6 +50,11 @@ class IndependentLinesEvaluator:
         else:
             self.logger.info(oov_msg)
 
+        self.oov_cost_applicator = OovCostApplicator(
+            get_oov_additional_cost(len(self.lm.vocab), total_vocab_size) if total_vocab_size else 0.0,
+            lm.vocab.unk_ind,
+        )
+
     def evaluate(self, prefix):
         self.lm.eval()
         h0_provider = self.lm.get_custom_h0_provider(prefix.split())
@@ -59,6 +65,8 @@ class IndependentLinesEvaluator:
         with torch.no_grad():
             for i, batch in enumerate(data_stream):
                 per_line_losses = self.lm.batch_nll_idxs(batch, h0_provider)
+                for i, (idxs, losses) in enumerate(zip(batch, per_line_losses)):
+                    per_line_losses[i] = self.oov_cost_applicator(idxs, losses)
                 loss += per_line_losses.sum().detach().item()
                 total_actual_size += per_line_losses.numel()
 
@@ -105,9 +113,33 @@ class EnblockEvaluator:
             hidden = repackage_hidden(hidden)
 
             output, hidden = self.lm.model(X, hidden)
-            loss, nb_words = self.lm.decoder.neg_log_prob(output, targets)
+            losses = self.lm.decoder.neg_log_prob_raw(output, targets)
 
-            total_loss += loss.data
-            total_timesteps += nb_words
+            total_loss += losses.sum().detach()
+            total_timesteps += targets.numel()
 
         return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+
+
+def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
+    nb_oovs_uncovered = total_vocab_size - lm_vocab_size
+    return math.log(nb_oovs_uncovered)
+
+
+class OovCostApplicator:
+    def __init__(self, oov_penalty, unk_ind):
+        self.oov_penalty = oov_penalty
+        self.unk_ind = unk_ind
+
+    def __call__(self, ids, losses):
+        if self.oov_penalty == 0.0:
+            return losses
+
+        unk_mask = (ids == self.unk_ind).to(losses.device)
+        zero_padding = torch.zeros(
+            (len(losses) - len(ids),),
+            dtype=unk_mask.dtype, device=unk_mask.device
+        )
+        unk_mask = torch.cat([unk_mask, zero_padding])
+
+        return losses + unk_mask*self.oov_penalty
