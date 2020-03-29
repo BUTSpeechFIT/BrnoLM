@@ -1,7 +1,5 @@
-import datetime
 import os
 import time
-import sys
 import subprocess
 import fcntl
 import logging
@@ -32,7 +30,7 @@ class GPUOwner:
             logger = logging
 
         with open(LOCK_FILENAME, 'w') as f:
-            logger.info(f'acquiring lock at {datetime.datetime.now()}')
+            logger.info(f'acquiring lock')
 
             with SafeLocker(f):
                 logger.info(f'lock acquired')
@@ -45,5 +43,5 @@ class GPUOwner:
                     self.placeholder = placeholder_fn()
                 except RuntimeError:
                     logger.error(f'failed to acquire placeholder')
-                    sys.exit(1)
+                    raise
             logger.info(f'lock released')
