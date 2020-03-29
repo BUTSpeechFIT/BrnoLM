@@ -6,6 +6,7 @@ import torch
 
 import brnolm.language_models.vocab as vocab
 from brnolm.rescoring.segment_scoring import SegmentScorer
+from brnolm.runtime.safe_gpu import GPUOwner
 
 import typing
 
@@ -23,22 +24,7 @@ def translate_latt_to_model(word_ids, latt_vocab, model_vocab, mode='words'):
         raise ValueError('Got unexpected mode "{}"'.format(mode))
 
 
-def main():
-    parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
-    parser.add_argument('--latt-vocab', type=str, required=True,
-                        help='word -> int map; Kaldi style "words.txt"')
-    parser.add_argument('--latt-unk', type=str, default='<unk>',
-                        help='unk symbol used in the lattice')
-    parser.add_argument('--cuda', action='store_true',
-                        help='use CUDA')
-    parser.add_argument('--character-lm', action='store_true',
-                        help='Process strings by characters')
-    parser.add_argument('--model-from', type=str, required=True,
-                        help='where to load the model from')
-    parser.add_argument('in_filename', help='second output of nbest-to-linear, textual')
-    parser.add_argument('out_filename', help='where to put the LM scores')
-    args = parser.parse_args()
-
+def main(args):
     logging.basicConfig(level=logging.DEBUG)
     logging.info(args)
 
@@ -87,4 +73,22 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM Language Model')
+    parser.add_argument('--latt-vocab', type=str, required=True,
+                        help='word -> int map; Kaldi style "words.txt"')
+    parser.add_argument('--latt-unk', type=str, default='<unk>',
+                        help='unk symbol used in the lattice')
+    parser.add_argument('--cuda', action='store_true',
+                        help='use CUDA')
+    parser.add_argument('--character-lm', action='store_true',
+                        help='Process strings by characters')
+    parser.add_argument('--model-from', type=str, required=True,
+                        help='where to load the model from')
+    parser.add_argument('in_filename', help='second output of nbest-to-linear, textual')
+    parser.add_argument('out_filename', help='where to put the LM scores')
+    args = parser.parse_args()
+
+    if args.cuda:
+        gpu_owner = GPUOwner()
+
     main()
