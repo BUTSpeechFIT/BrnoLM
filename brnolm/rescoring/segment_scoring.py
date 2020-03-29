@@ -66,7 +66,7 @@ class SegmentScorer:
                     raise RuntimeError("Preemptive, batch is {len(batch)}x{max(len(s) for s in batch)}")
                 idxs = [[self.lm.vocab[w] for w in s] for s in batch]
                 this_batch_ys, this_batch_hs = self.lm.batch_nll_idxs(idxs, h0_provider, return_h=True)
-                ys.extend(this_batch_ys.sum(axis=1).detach().numpy())
+                ys.extend(this_batch_ys.sum(axis=1).cpu().detach().numpy())
                 hs.extend(split_batch_hidden_state(detach_hidden_state(this_batch_hs)))
 
             except RuntimeError as e:
