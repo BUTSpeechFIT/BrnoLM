@@ -121,6 +121,53 @@ class EnblockEvaluator:
         return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
 
 
+class SubstitutionalEnblockEvaluator:
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, corruptor, nb_rounds, logger=None):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger('IndependentLinesEvaluator')
+        self.batch_size = batch_size
+        self.lm = lm
+
+        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
+        oov_mask = ids == lm.vocab.unk_ind
+        nb_oovs = oov_mask.sum().item()
+
+        nb_tokens = len(ids)
+        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, len(ids), 100.0 * nb_oovs/nb_tokens)
+        if nb_oovs / nb_tokens > 0.05:
+            self.logger.warning(oov_msg)
+        else:
+            self.logger.info(oov_msg)
+
+        batched = batchify(ids, batch_size, lm.device == torch.device('cuda:0'))
+        data_tb = TemporalSplits(
+            batched,
+            nb_inputs_necessary=lm.model.in_len,
+            nb_targets_parallel=target_seq_len
+        )
+        self.data = corruptor(TransposeWrapper(data_tb))
+
+    def evaluate(self):
+        self.lm.eval()
+
+        total_loss = 0.0
+        total_timesteps = 0
+        hidden = self.lm.model.init_hidden(self.batch_size)
+
+        for X, targets in self.data:
+            hidden = repackage_hidden(hidden)
+
+            output, hidden = self.lm.model(X, hidden)
+            losses = self.lm.decoder.neg_log_prob_raw(output, targets)
+
+            total_loss += losses.sum().detach()
+            total_timesteps += targets.numel()
+
+        return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+
+
 def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
     nb_oovs_uncovered = total_vocab_size - lm_vocab_size
     return math.log(nb_oovs_uncovered)
