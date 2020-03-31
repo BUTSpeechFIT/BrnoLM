@@ -1,5 +1,6 @@
 import logging
 import math
+import numpy as np
 from dataclasses import dataclass
 
 from brnolm.data_pipeline.reading import get_independent_lines, tokens_from_fn
@@ -151,6 +152,10 @@ class SubstitutionalEnblockEvaluator:
         self.data = corruptor(TransposeWrapper(data_tb))
 
     def evaluate(self):
+        overall_total_loss = 0.0
+        overall_total_timesteps = 0.0
+        ppls = []
+
         for round_no in range(self.nb_rounds):
             self.lm.eval()
 
@@ -168,9 +173,16 @@ class SubstitutionalEnblockEvaluator:
                 total_timesteps += targets.numel()
 
             eval_report = EvaluationReport(total_loss.item(), total_timesteps, 1.0)
-            self.logger.info('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
+            ppl = math.exp(eval_report.loss_per_token)
+            self.logger.debug('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, ppl))
 
-        return eval_report
+            overall_total_loss += total_loss
+            overall_total_timesteps += total_timesteps
+            ppls.append(ppl)
+
+        ppls = np.asarray(ppls)
+        self.logger.info(f'PPLs summary: {np.min(ppls):.2f} / {np.mean(ppls):.2f} / {np.max(ppls):.2f} , stddev: {np.std(ppls):.3f}')
+        return EvaluationReport(overall_total_loss.item(), overall_total_timesteps, 1.0)
 
 
 def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
