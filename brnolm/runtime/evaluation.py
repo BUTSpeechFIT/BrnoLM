@@ -129,6 +129,7 @@ class SubstitutionalEnblockEvaluator:
             self.logger = logging.getLogger('IndependentLinesEvaluator')
         self.batch_size = batch_size
         self.lm = lm
+        self.nb_rounds = nb_rounds
 
         ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
@@ -150,22 +151,26 @@ class SubstitutionalEnblockEvaluator:
         self.data = corruptor(TransposeWrapper(data_tb))
 
     def evaluate(self):
-        self.lm.eval()
+        for round_no in range(self.nb_rounds):
+            self.lm.eval()
 
-        total_loss = 0.0
-        total_timesteps = 0
-        hidden = self.lm.model.init_hidden(self.batch_size)
+            total_loss = 0.0
+            total_timesteps = 0
+            hidden = self.lm.model.init_hidden(self.batch_size)
 
-        for X, targets in self.data:
-            hidden = repackage_hidden(hidden)
+            for X, targets in self.data:
+                hidden = repackage_hidden(hidden)
 
-            output, hidden = self.lm.model(X, hidden)
-            losses = self.lm.decoder.neg_log_prob_raw(output, targets)
+                output, hidden = self.lm.model(X, hidden)
+                losses = self.lm.decoder.neg_log_prob_raw(output, targets)
 
-            total_loss += losses.sum().detach()
-            total_timesteps += targets.numel()
+                total_loss += losses.sum().detach()
+                total_timesteps += targets.numel()
 
-        return EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+            eval_report = EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+            self.logger.info('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
+
+        return eval_report
 
 
 def get_oov_additional_cost(lm_vocab_size, total_vocab_size):
