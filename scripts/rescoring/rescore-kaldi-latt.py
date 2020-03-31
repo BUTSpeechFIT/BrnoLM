@@ -89,6 +89,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.cuda:
-        gpu_owner = GPUOwner()
+        gpu_owner = GPUOwner(lambda: torch.zeros((1), device='cuda'))
 
     main()
