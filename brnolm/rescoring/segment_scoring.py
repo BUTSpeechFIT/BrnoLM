@@ -62,12 +62,17 @@ class SegmentScorer:
         while work_left:
             batch = work_left.pop(0)
             try:
-                if len(batch) * max(len(s) for s in batch) > self.max_softmaxes:
-                    raise RuntimeError("Preemptive, batch is {len(batch)}x{max(len(s) for s in batch)}")
-                idxs = [[self.lm.vocab[w] for w in s] for s in batch]
-                this_batch_ys, this_batch_hs = self.lm.batch_nll_idxs(idxs, h0_provider, return_h=True)
-                ys.extend(this_batch_ys.sum(axis=1).cpu().detach().numpy())
-                hs.extend(split_batch_hidden_state(detach_hidden_state(this_batch_hs)))
+                if len(batch) == 1:  # for batch size 1, we will do splitting along time axis
+                    y, last_h = self.universal_single_sentences(batch[0], h0_provider)
+                    hs.append(last_h)
+                    ys.append(y)
+                else:
+                    if len(batch) * max(len(s) for s in batch) > self.max_softmaxes:
+                        raise RuntimeError("Preemptive, batch is {len(batch)}x{max(len(s) for s in batch)}")
+                    idxs = [[self.lm.vocab[w] for w in s] for s in batch]
+                    this_batch_ys, this_batch_hs = self.lm.batch_nll_idxs(idxs, h0_provider, return_h=True)
+                    ys.extend(this_batch_ys.sum(axis=1).cpu().detach().numpy())
+                    hs.extend(split_batch_hidden_state(detach_hidden_state(this_batch_hs)))
 
             except RuntimeError as e:
                 cuda_memory_error = 'CUDA out of memory' in str(e)
@@ -80,3 +85,29 @@ class SegmentScorer:
                 work_left.insert(0, second)
                 work_left.insert(0, first)
         return ys, hs
+
+    def universal_single_sentences(self, sentence, h0_provider):
+        idxs = [self.lm.vocab[c] for c in sentence]
+
+        total_loss = 0.0
+        hidden = h0_provider(1)
+
+        o0 = self.lm.model.extract_output_from_h(hidden).unsqueeze(1)
+        nll0, _ = self.lm.decoder.neg_log_prob(o0, torch.tensor([[idxs[0]]]))
+
+        inputs_beginnings = list(range(0, len(idxs)-1, self.max_softmaxes))
+        inputs = [idxs[:-1][t:t+self.max_softmaxes] for t in inputs_beginnings]
+        targets = [idxs[1:][t:t+self.max_softmaxes] for t in inputs_beginnings]
+
+        for X, targets in zip(inputs, targets):
+            X = torch.tensor([X], device=self.lm.device)
+            targets = torch.tensor([targets], device=self.lm.device)
+            hidden = detach_hidden_state(hidden)
+
+            output, hidden = self.lm.model(X, hidden)
+            losses = self.lm.decoder.neg_log_prob_raw(output, targets)
+
+            total_loss += losses.sum().detach()
+
+        hidden = detach_hidden_state(hidden)
+        return total_loss, (hidden[0][:, 0], hidden[1][:, 0])
