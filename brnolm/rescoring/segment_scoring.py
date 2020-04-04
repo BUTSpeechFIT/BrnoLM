@@ -9,7 +9,7 @@ from brnolm.language_models.language_model import split_batch_hidden_state, deta
 # for LSTMs
 def lstm_h0_provider(single_h, batch_size):
     h, c = single_h
-    return (torch.stack([h]*batch_size, axis=1), torch.stack([h]*batch_size, axis=1))
+    return (torch.stack([h]*batch_size, axis=1), torch.stack([c]*batch_size, axis=1))
 
 
 @dataclass
