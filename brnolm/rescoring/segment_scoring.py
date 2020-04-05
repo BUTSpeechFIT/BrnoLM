@@ -93,7 +93,7 @@ class SegmentScorer:
         hidden = h0_provider(1)
 
         o0 = self.lm.model.extract_output_from_h(hidden).unsqueeze(1)
-        nll0, _ = self.lm.decoder.neg_log_prob(o0, torch.tensor([[idxs[0]]]))
+        nll0, _ = self.lm.decoder.neg_log_prob(o0, torch.tensor([[idxs[0]]], device=self.lm.device))
 
         inputs_beginnings = list(range(0, len(idxs)-1, self.max_softmaxes))
         inputs = [idxs[:-1][t:t+self.max_softmaxes] for t in inputs_beginnings]
