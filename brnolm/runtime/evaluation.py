@@ -80,7 +80,7 @@ class EnblockEvaluator:
         if logger:
             self.logger = logger
         else:
-            self.logger = logging.getLogger('IndependentLinesEvaluator')
+            self.logger = logging.getLogger('EnblockEvaluator')
         self.batch_size = batch_size
         self.lm = lm
 
@@ -127,7 +127,7 @@ class SubstitutionalEnblockEvaluator:
         if logger:
             self.logger = logger
         else:
-            self.logger = logging.getLogger('IndependentLinesEvaluator')
+            self.logger = logging.getLogger('SubstitutionalEnblockEvaluator')
         self.batch_size = batch_size
         self.lm = lm
         self.nb_rounds = nb_rounds
