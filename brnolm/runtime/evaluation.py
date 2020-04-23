@@ -76,7 +76,7 @@ class IndependentLinesEvaluator:
 
 
 class EnblockEvaluator:
-    def __init__(self, lm, data_fn, batch_size, target_seq_len, logger=None):
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, logger=None, tokenize_regime='words'):
         if logger:
             self.logger = logger
         else:
@@ -84,7 +84,7 @@ class EnblockEvaluator:
         self.batch_size = batch_size
         self.lm = lm
 
-        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
+        ids = tokens_from_fn(data_fn, lm.vocab, regime=tokenize_regime, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
         nb_oovs = oov_mask.sum().item()
 
@@ -123,7 +123,7 @@ class EnblockEvaluator:
 
 
 class SubstitutionalEnblockEvaluator:
-    def __init__(self, lm, data_fn, batch_size, target_seq_len, corruptor, nb_rounds, logger=None):
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, corruptor, nb_rounds, logger=None, tokenize_regime='words'):
         if logger:
             self.logger = logger
         else:
@@ -132,7 +132,7 @@ class SubstitutionalEnblockEvaluator:
         self.lm = lm
         self.nb_rounds = nb_rounds
 
-        ids = tokens_from_fn(data_fn, lm.vocab, randomize=False)
+        ids = tokens_from_fn(data_fn, lm.vocab, regime=tokenize_regime, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
         nb_oovs = oov_mask.sum().item()
 
