@@ -82,7 +82,7 @@ def main():
         nb_targets_parallel=args.target_seq_len
     )
     train_data = TransposeWrapper(train_data_tb)
-    train_data = Corruptor(train_data, args.corruption_rate)
+    train_data = Corruptor(train_data, args.corruption_rate, len(lm.vocab))
     train_data_stream = OndemandDataProvider(train_data, args.cuda)
 
     print("preparing validation data...")

@@ -49,7 +49,7 @@ if __name__ == '__main__':
         args.data,
         args.batch_size,
         args.target_seq_len,
-        lambda data: Corruptor(data, args.corruption_rate),
+        lambda data: Corruptor(data, args.corruption_rate, len(lm.vocab)),
         args.rounds,
     )
     eval_report = evaluator.evaluate()
