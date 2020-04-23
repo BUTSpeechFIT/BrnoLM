@@ -85,7 +85,7 @@ def main():
     train_data_stream = OndemandDataProvider(train_data, args.cuda)
 
     print("preparing validation data...")
-    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len)
+    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=tokenize_regime)
 
     def val_loss_fn():
         return evaluator.evaluate().loss_per_token
