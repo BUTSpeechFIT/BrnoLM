@@ -31,6 +31,8 @@ def main():
 
     parser.add_argument('--corruption-rate', type=float, default=0.0,
                         help='what ratio of input tokens should be randomly')
+    parser.add_argument('--eval-rounds', type=int, default=3,
+                        help='How many times to go through eval with different augmentations')
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
@@ -87,6 +89,14 @@ def main():
 
     print("preparing validation data...")
     evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len)
+    # Evaluation (de facto LR scheduling) with input corruption did not
+    # during the CHiMe-6 evaluation
+    # evaluator = SubstitutionalEnblockEvaluator(
+    #     lm, args.valid,
+    #     batch_size=10, target_seq_len=args.target_seq_len,
+    #     corruptor=lambda data: Corruptor(data, args.corruption_rate, len(lm.vocab)),
+    #     nb_rounds=args.eval_rounds,
+    # )
 
     def val_loss_fn():
         return evaluator.evaluate().loss_per_token
