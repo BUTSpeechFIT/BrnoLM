@@ -27,13 +27,22 @@ class Deletor:
 
 
 class Corruptor:
-    def __init__(self, source, rate, replacements_range):
+    def __init__(self, source, substitution_rate=-1.0, replacements_range=None, deletion_rate=-1.0):
         self.source = source
-        self.substitutor = Substitutor(rate, replacements_range)
-        self.deletor = Deletor(rate)
+        if substitution_rate > 0.0:
+            self.substitutor = Substitutor(substitution_rate, replacements_range)
+        else:
+            self.substitutor = None
+
+        if deletion_rate > 0.0:
+            self.deletor = Deletor(deletion_rate)
+        else:
+            self.deletor = None
 
     def __iter__(self):
-        for X, targets in self.source:
-            X_out, t_out = self.deletor(X, targets)
-            X_out, t_out = self.substitutor(X_out, t_out)
-            yield X_out, t_out
+        for X, t in self.source:
+            if self.deletor:
+                X, t = self.deletor(X, t)
+            if self.substitutor:
+                X, t = self.substitutor(X, t)
+            yield X, t

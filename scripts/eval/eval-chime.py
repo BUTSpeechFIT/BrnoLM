@@ -18,8 +18,10 @@ if __name__ == '__main__':
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
-    parser.add_argument('--corruption-rate', type=float, required=True,
+    parser.add_argument('--subs-rate', type=float, required=True,
                         help='what ratio of input tokens should be substituted')
+    parser.add_argument('--del-rate', type=float, required=True,
+                        help='what ratio of tokens should be deleted')
     parser.add_argument('--rounds', type=int, required=True,
                         help='how many times to run through the eval data')
 
@@ -49,7 +51,7 @@ if __name__ == '__main__':
         args.data,
         args.batch_size,
         args.target_seq_len,
-        lambda data: Corruptor(data, args.corruption_rate, len(lm.vocab)),
+        lambda data: Corruptor(data, substitution_rate=args.subs_rate, replacements_range=len(lm.vocab), deletion_rate=args.del_rate),
         args.rounds,
     )
     eval_report = evaluator.evaluate()

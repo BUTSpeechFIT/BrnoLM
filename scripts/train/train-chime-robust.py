@@ -29,8 +29,10 @@ def main():
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
-    parser.add_argument('--corruption-rate', type=float, default=0.0,
+    parser.add_argument('--subs-rate', type=float, default=0.0,
                         help='what ratio of input tokens should be randomly')
+    parser.add_argument('--del-rate', type=float, default=0.0,
+                        help='what ratio of tokens should be removed')
     parser.add_argument('--eval-rounds', type=int, default=3,
                         help='How many times to go through eval with different augmentations')
 
@@ -84,7 +86,11 @@ def main():
         nb_targets_parallel=args.target_seq_len
     )
     train_data = TransposeWrapper(train_data_tb)
-    train_data = Corruptor(train_data, args.corruption_rate, len(lm.vocab))
+    train_data = Corruptor(
+        train_data,
+        substitution_rate=args.subs_rate, replacements_range=len(lm.vocab),
+        deletion_rate=args.del_rate,
+    )
     train_data_stream = OndemandDataProvider(train_data, args.cuda)
 
     print("preparing validation data...")
