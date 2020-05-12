@@ -11,6 +11,9 @@ from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.runtime.runtime_utils import TransposeWrapper
 from brnolm.runtime.runtime_multifile import repackage_hidden
 
+from brnolm.data_pipeline.aug_paper_pipeline import Corruptor, form_input_targets, LazyBatcher, TemplSplitterClean
+from brnolm.runtime.runtime_utils import CudaStream
+
 import torch
 
 
@@ -151,7 +154,7 @@ class SubstitutionalEnblockEvaluator:
         )
         self.data = corruptor(TransposeWrapper(data_tb))
 
-    def evaluate(self):
+    def evaluate(self, report_individual=False):
         overall_total_loss = 0.0
         overall_total_timesteps = 0.0
         ppls = []
@@ -174,7 +177,71 @@ class SubstitutionalEnblockEvaluator:
 
             eval_report = EvaluationReport(total_loss.item(), total_timesteps, 1.0)
             ppl = math.exp(eval_report.loss_per_token)
-            self.logger.debug('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, ppl))
+            if report_individual:
+                self.logger.info('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, ppl))
+
+            overall_total_loss += total_loss
+            overall_total_timesteps += total_timesteps
+            ppls.append(ppl)
+
+        ppls = np.asarray(ppls)
+        self.logger.info(f'PPLs summary: {np.min(ppls):.2f} / {np.mean(ppls):.2f} / {np.max(ppls):.2f} , stddev: {np.std(ppls):.3f}')
+        return EvaluationReport(overall_total_loss.item(), overall_total_timesteps, 1.0)
+
+
+class SubstitutionalEnblockEvaluator_v2:
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, corruptor, nb_rounds, logger=None, tokenize_regime='words'):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger('SubstitutionalEnblockEvaluator_v2')
+        self.batch_size = batch_size
+        self.lm = lm
+        self.nb_rounds = nb_rounds
+
+        ids = tokens_from_fn(data_fn, lm.vocab, regime=tokenize_regime, randomize=False)
+        oov_mask = ids == lm.vocab.unk_ind
+        nb_oovs = oov_mask.sum().item()
+
+        nb_tokens = len(ids)
+        oov_msg = 'Nb oovs: {} / {} ({:.2f} %)\n'.format(nb_oovs, len(ids), 100.0 * nb_oovs/nb_tokens)
+        if nb_oovs / nb_tokens > 0.05:
+            self.logger.warning(oov_msg)
+        else:
+            self.logger.info(oov_msg)
+
+        streams = form_input_targets(ids)
+        corrupted_provider = corruptor(streams)
+        batch_former = LazyBatcher(batch_size, corrupted_provider)
+        data_tb = TemplSplitterClean(target_seq_len, batch_former)
+
+        self.data = CudaStream(TransposeWrapper(data_tb))
+
+    def evaluate(self, report_individual=False):
+        overall_total_loss = 0.0
+        overall_total_timesteps = 0.0
+        ppls = []
+
+        for round_no in range(self.nb_rounds):
+            self.lm.eval()
+
+            total_loss = 0.0
+            total_timesteps = 0
+            hidden = self.lm.model.init_hidden(self.batch_size)
+
+            for X, targets in self.data:
+                hidden = repackage_hidden(hidden)
+
+                output, hidden = self.lm.model(X, hidden)
+                losses = self.lm.decoder.neg_log_prob_raw(output, targets)
+
+                total_loss += losses.sum().detach()
+                total_timesteps += targets.numel()
+
+            eval_report = EvaluationReport(total_loss.item(), total_timesteps, 1.0)
+            ppl = math.exp(eval_report.loss_per_token)
+            if report_individual:
+                self.logger.info('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, ppl))
 
             overall_total_loss += total_loss
             overall_total_timesteps += total_timesteps
