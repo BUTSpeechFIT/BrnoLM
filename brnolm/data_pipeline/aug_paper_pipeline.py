@@ -13,6 +13,7 @@ class Corruptor:
         self.targets = streams[1]
         self.sr = subs_rate
         self.subs_range = subs_range
+        self.dr = del_rate
 
     def provide(self):
         inputs = []
@@ -20,8 +21,13 @@ class Corruptor:
 
         i = 0
         while i < len(self.inputs):
-            roll = random.random()
-            if roll < self.sr:
+            # roll = random.random()
+
+            if random.random() < self.dr:
+                i += 1
+                continue
+
+            if random.random() < self.sr:
                 targets.append(self.targets[i])
                 inputs.append(random.randrange(self.subs_range))
                 i += 1
