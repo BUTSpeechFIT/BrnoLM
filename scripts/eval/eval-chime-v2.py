@@ -7,7 +7,6 @@ import torch
 
 from brnolm.runtime.runtime_utils import init_seeds
 from brnolm.runtime.evaluation import SubstitutionalEnblockEvaluator_v2
-from brnolm.data_pipeline.augmentation import WordLevelSubstitutor
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
 
 
@@ -23,6 +22,8 @@ if __name__ == '__main__':
                         help='what ratio of input tokens should be substituted')
     parser.add_argument('--del-rate', type=float, required=True,
                         help='what ratio of tokens should be deleted')
+    parser.add_argument('--ins-rate', type=float, required=True,
+                        help='what ratio of tokens should be inserted')
     parser.add_argument('--rounds', type=int, required=True,
                         help='how many times to run through the eval data')
     parser.add_argument('--individual', action='store_true',
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         args.data,
         args.batch_size,
         args.target_seq_len,
-        lambda streams: Corruptor(streams, args.subs_rate, len(lm.vocab), args.del_rate),
+        lambda streams: Corruptor(streams, args.subs_rate, len(lm.vocab), args.del_rate, args.ins_rate, protected=[lm.vocab['</s>']]),
         args.rounds,
     )
     eval_report = evaluator.evaluate(report_individual=args.individual)

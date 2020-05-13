@@ -7,35 +7,53 @@ def form_input_targets(stream):
 
 
 class Corruptor:
-    def __init__(self, streams, subs_rate, subs_range, del_rate):
+    def __init__(self, streams, subs_rate, subs_range, del_rate, ins_rate, protected=[]):
         assert len(streams[0]) == len(streams[1])
         self.inputs = streams[0]
         self.targets = streams[1]
         self.sr = subs_rate
         self.subs_range = subs_range
         self.dr = del_rate
+        self.ir = ins_rate
+        self.protected = protected
 
     def provide(self):
         inputs = []
         targets = []
 
         i = 0
+        nb_nonprotected = 0
+        nb_subs = 0
+        nb_dels = 0
+        nb_inss = 0
         while i < len(self.inputs):
-            # roll = random.random()
-
-            if random.random() < self.dr:
+            if self.inputs[i] in self.protected:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
                 i += 1
                 continue
 
-            if random.random() < self.sr:
+            nb_nonprotected += 1
+
+            roll = random.random()
+            if roll < self.dr:
+                i += 1
+                nb_dels += 1
+            elif roll < self.dr + self.sr:
                 targets.append(self.targets[i])
                 inputs.append(random.randrange(self.subs_range))
                 i += 1
+                nb_subs += 1
+            elif roll < self.dr + self.sr + self.ir:
+                targets.append(self.targets[i])
+                inputs.append(random.randrange(self.subs_range))
+                nb_inss += 1
             else:
                 targets.append(self.targets[i])
                 inputs.append(self.inputs[i])
                 i += 1
 
+        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
         return torch.tensor(inputs), torch.tensor(targets)
 
 
