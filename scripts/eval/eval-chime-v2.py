@@ -5,6 +5,7 @@ import logging
 import math
 import torch
 
+from brnolm.runtime.safe_gpu import GPUOwner
 from brnolm.runtime.runtime_utils import init_seeds
 from brnolm.runtime.evaluation import SubstitutionalEnblockEvaluator_v2
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
@@ -47,6 +48,9 @@ if __name__ == '__main__':
 
     print("loading model...")
     device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    if args.cuda:
+        gpu_owner = GPUOwner(lambda: torch.zeros((1), device='cuda'))
+
     lm = torch.load(args.load, map_location=device)
     print(lm)
 
