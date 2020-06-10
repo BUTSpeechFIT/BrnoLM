@@ -4,12 +4,12 @@ import torch
 class Substitutor:
     def __init__(self, rate, replacements_range):
         self.rate = rate
-        self.replacement_range = replacements_range
+        self.replacements_range = replacements_range
         if not isinstance(replacements_range, int) or replacements_range < 0:
             raise ValueError(f"Replacements range needs to be a positive integer, got {replacements_range}")
 
     def __call__(self, X, targets):
-        replacements = torch.randint(0, self.replacement_range, X.shape, device=X.device, dtype=X.dtype)
+        replacements = torch.randint(0, self.replacements_range, X.shape, device=X.device, dtype=X.dtype)
         mask = torch.full(X.shape, self.rate, device=X.device)
         mask = torch.bernoulli(mask).long()
 
