@@ -1,4 +1,6 @@
+import torch
 import torch.nn as nn
+from typing import Tuple
 
 
 class LSTMLanguageModel(nn.Module):
@@ -16,7 +18,11 @@ class LSTMLanguageModel(nn.Module):
         self.batch_first = True
         self.in_len = 1
 
-    def forward(self, input, hidden):
+    def init_weights(self):
+        initrange = 0.1
+        self.encoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, input, hidden: Tuple[torch.Tensor, torch.Tensor]):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
@@ -31,12 +37,14 @@ class LSTMLanguageModel(nn.Module):
         outputs, _ = self.rnn(emb, hidden)
         return outputs
 
-    def init_hidden(self, bsz):
-        weight = next(self.parameters()).data
-        return (weight.new_zeros(self.nlayers, bsz, self.dim_lstm),
-                weight.new_zeros(self.nlayers, bsz, self.dim_lstm))
+    @torch.jit.export
+    def init_hidden(self, bsz: int):
+        weight = self.encoder.weight.data
+        return (weight.new_zeros(self.nlayers, bsz, self.nhid),
+                weight.new_zeros(self.nlayers, bsz, self.nhid))
 
-    def extract_output_from_h(self, hidden_state):
+    @torch.jit.export
+    def extract_output_from_h(self, hidden_state: Tuple[torch.Tensor, torch.Tensor]):
         h = hidden_state[0]  # hidden state is (h, c)
         return h[-1]  # last layer is the output one
 
