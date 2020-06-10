@@ -24,6 +24,8 @@ if __name__ == '__main__':
                         help='what ratio of tokens should be deleted')
     parser.add_argument('--rounds', type=int, required=True,
                         help='how many times to run through the eval data')
+    parser.add_argument('--individual', action='store_true',
+                        help='report individual rounds')
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
@@ -54,6 +56,6 @@ if __name__ == '__main__':
         lambda data: Corruptor(data, substitution_rate=args.subs_rate, replacements_range=len(lm.vocab), deletion_rate=args.del_rate),
         args.rounds,
     )
-    eval_report = evaluator.evaluate()
+    eval_report = evaluator.evaluate(report_individual=args.individual)
 
     print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
