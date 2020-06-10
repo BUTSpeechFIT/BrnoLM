@@ -22,7 +22,7 @@ def tokens_from_file(f, vocab, randomize, regime='words'):
     if regime == 'words':
         tokenizer = word_splitter
     elif regime == 'chars':
-        tokenizer = lambda line: char_splitter(line, '<sb>')
+        tokenizer = lambda line: char_splitter(line, '</s>')
     else:
         raise ValueError("unsupported regime {}".format(regime))
 
