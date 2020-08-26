@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import torch
 
-lm = torch.load('/mnt/matylda5/ibenes/projects/chime6/lms/base-training-workdir/best.lm')
+lm = torch.load('/mnt/matylda5/ibenes/projects/chime6/lms/base-training-workdir/best.lm', map_location='cpu')
 sentence = 'a run cube </s>'
 print(sentence)
 print('orig lm score:', lm.single_sentence_nll(sentence.split(), None))
