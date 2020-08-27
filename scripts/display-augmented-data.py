@@ -3,9 +3,14 @@
 import argparse
 import logging
 import torch
+import sys
 
 from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor, form_input_targets
+
+
+RED_MARK = '\033[91m'
+END_MARK = '\033[0m'
 
 
 def main(args):
@@ -20,10 +25,15 @@ def main(args):
 
     inputs, targets = corrupted_provider.provide()
 
-    for _, input, target in zip(range(args.nb_tokens), inputs, targets):
-        in_word = lm.vocab.i2w(input.item())
-        target_word = lm.vocab.i2w(target.item())
-        print(in_word, target_word)
+    for i in range(args.nb_tokens):
+        in_word = lm.vocab.i2w(inputs[i].item())
+        target_word = lm.vocab.i2w(targets[i].item())
+
+        is_error = i > 0 and inputs[i] != targets[i-1]
+        if args.color and is_error:
+            sys.stdout.write(f'{RED_MARK}{in_word}{END_MARK} {target_word}\n')
+        else:
+            sys.stdout.write(f'{in_word} {target_word}\n')
 
 
 if __name__ == '__main__':
@@ -32,6 +42,8 @@ if __name__ == '__main__':
                         help='location of the train corpus')
     parser.add_argument('--nb-tokens', type=int, default=10,
                         help='how many input-target pairs to show')
+    parser.add_argument('--color', action='store_true',
+                        help='Use ANSI colorcodes to highlight errors')
 
     parser.add_argument('--subs-rate', type=float, required=True,
                         help='what ratio of input tokens should be randomly')
