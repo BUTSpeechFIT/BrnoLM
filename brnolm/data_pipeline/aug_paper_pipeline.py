@@ -1,5 +1,6 @@
-import torch
+import numpy as np
 import random
+import torch
 
 
 def form_input_targets(stream):
@@ -52,6 +53,101 @@ class Corruptor:
                 targets.append(self.targets[i])
                 inputs.append(self.inputs[i])
                 i += 1
+
+        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
+        return torch.tensor(inputs), torch.tensor(targets)
+
+
+def cut_counts(confusions, mincount):
+    counts = {ref_word: {k: v for k, v in nums.items() if v >= mincount} for ref_word, nums in confusions.items()}
+    total_counts = {ref_word: sum(counts[ref_word].values()) for ref_word in counts}
+
+    return {ref_word: counts for ref_word, counts in confusions.items() if total_counts[ref_word] > 0}
+
+
+class Confuser:
+    NONE_ID = -1
+
+    def __init__(self, confusion_counts, vocab, mincount):
+        probs = cut_counts(confusion_counts, mincount)
+
+        def translate(word):
+            if word is None:
+                return Confuser.NONE_ID
+            else:
+                return vocab[word]
+
+        id_counts = {translate(ref_word): {translate(replacement): v for replacement, v in stats.items()} for ref_word, stats in probs.items()}
+        id_counts_np = {ref_id: (np.asarray(list(probs.keys())), np.asarray(list(probs.values()))) for ref_id, probs in id_counts.items()}
+        self.table = {ref_id: (ids, counts/np.sum(counts)) for ref_id, (ids, counts) in id_counts_np.items()}
+
+    def replace(self, token_id):
+        if token_id is None:
+            token_id = Confuser.NONE_ID
+
+        try:
+            repl_labels = self.table[token_id][0]
+        except KeyError:  # New token, never seen in stats. Typical for <unk> and other unks
+            return token_id
+
+        probs = self.table[token_id][1]
+        sample = np.random.choice(repl_labels, p=probs)
+
+        if sample == Confuser.NONE_ID:
+            return None
+        else:
+            return sample
+
+
+class StatisticsCorruptor:
+    def __init__(self, streams, confuser, ins_rate, protected=[]):
+        assert len(streams[0]) == len(streams[1])
+        self.inputs = streams[0]
+        self.targets = streams[1]
+        self.confuser = confuser
+        self.ir = ins_rate
+        self.protected = protected
+
+    def provide(self):
+        inputs = []
+        targets = []
+
+        i = 0
+        nb_nonprotected = 0
+        nb_subs = 0
+        nb_dels = 0
+        nb_inss = 0
+
+        while i < len(self.inputs):
+            if self.inputs[i] in self.protected:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
+                i += 1
+                continue
+
+            nb_nonprotected += 1
+
+            roll = random.random()
+            if roll < self.ir:  # Insertion
+                insertion = self.confuser.replace(None)
+                targets.append(self.targets[i])
+                inputs.append(insertion)
+                nb_inss += 1
+            else:
+                in_token = self.inputs[i]
+                repl = self.confuser.replace(in_token.item())
+                if repl == self.inputs[i]:  # Correct token
+                    targets.append(self.targets[i])
+                    inputs.append(self.inputs[i])
+                    i += 1
+                elif repl is None:  # Deletion
+                    i += 1
+                    nb_dels += 1
+                else:  # Substitution
+                    targets.append(self.targets[i])
+                    inputs.append(repl)
+                    i += 1
+                    nb_subs += 1
 
         print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
         return torch.tensor(inputs), torch.tensor(targets)
