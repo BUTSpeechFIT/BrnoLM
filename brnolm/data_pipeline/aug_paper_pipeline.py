@@ -66,20 +66,20 @@ def cut_counts(confusions, mincount):
 
 
 class SampleCache:
-    def __init__(self, replacements, probs, size=1000):
+    def __init__(self, ids, replacements, probs, size=1000):
         self.replacements = replacements
         self.size = size
         self.probs = probs
-        self.cache = np.random.choice(replacements, (size), p=probs)
-        self.next = 0
+        self.cache = {id: np.random.choice(replacements[id], size, p=probs[id]) for id in ids}
+        self.next = {id: 0 for id in ids}
 
-    def get_next(self):
-        if self.next == len(self.cache):
-            self.cache = np.random.choice(self.replacements, (self.size), p=self.probs)
-            self.next = 0
+    def get_next(self, id):
+        if self.next[id] == len(self.cache[id]):
+            self.cache[id] = np.random.choice(self.replacements[id], (self.size), p=self.probs[id])
+            self.next[id] = 0
 
-        sample = self.cache[self.next]
-        self.next += 1
+        sample = self.cache[id][self.next[id]]
+        self.next[id] += 1
         return sample
 
 
@@ -98,14 +98,19 @@ class Confuser:
         id_counts = {translate(ref_word): {translate(replacement): v for replacement, v in stats.items()} for ref_word, stats in probs.items()}
         id_counts_np = {ref_id: (np.asarray(list(probs.keys())), np.asarray(list(probs.values()))) for ref_id, probs in id_counts.items()}
 
-        self.sample_caches = {ref_id: SampleCache(ids, counts/np.sum(counts), size=1000) for ref_id, (ids, counts) in id_counts_np.items()}
+        self.samples_cache = SampleCache(
+            list(id_counts_np.keys()),
+            {id: repls for id, (repls, _) in id_counts_np.items()},
+            {id: counts/np.sum(counts) for id, (_, counts) in id_counts_np.items()},
+            size=1000,
+        )
 
     def replace(self, token_id):
         if token_id is None:
             token_id = Confuser.NONE_ID
 
         try:
-            sample = self.sample_caches[token_id].get_next()
+            sample = self.samples_cache.get_next(token_id)
         except KeyError:  # New token, never seen in stats. Typical for <unk> and other unks
             return token_id
 
