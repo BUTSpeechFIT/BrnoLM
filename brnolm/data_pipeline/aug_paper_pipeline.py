@@ -65,6 +65,24 @@ def cut_counts(confusions, mincount):
     return {ref_word: counts for ref_word, counts in confusions.items() if total_counts[ref_word] > 0}
 
 
+class SampleCache:
+    def __init__(self, replacements, probs, size=1000):
+        self.replacements = replacements
+        self.size = size
+        self.probs = probs
+        self.cache = np.random.choice(replacements, (size), p=probs)
+        self.next = 0
+
+    def get_next(self):
+        if self.next == len(self.cache):
+            self.cache = np.random.choice(self.replacements, (self.size), p=self.probs)
+            self.next = 0
+
+        sample = self.cache[self.next]
+        self.next += 1
+        return sample
+
+
 class Confuser:
     NONE_ID = -1
 
@@ -79,19 +97,17 @@ class Confuser:
 
         id_counts = {translate(ref_word): {translate(replacement): v for replacement, v in stats.items()} for ref_word, stats in probs.items()}
         id_counts_np = {ref_id: (np.asarray(list(probs.keys())), np.asarray(list(probs.values()))) for ref_id, probs in id_counts.items()}
-        self.table = {ref_id: (ids, counts/np.sum(counts)) for ref_id, (ids, counts) in id_counts_np.items()}
+
+        self.sample_caches = {ref_id: SampleCache(ids, counts/np.sum(counts), size=1000) for ref_id, (ids, counts) in id_counts_np.items()}
 
     def replace(self, token_id):
         if token_id is None:
             token_id = Confuser.NONE_ID
 
         try:
-            repl_labels = self.table[token_id][0]
+            sample = self.sample_caches[token_id].get_next()
         except KeyError:  # New token, never seen in stats. Typical for <unk> and other unks
             return token_id
-
-        probs = self.table[token_id][1]
-        sample = np.random.choice(repl_labels, p=probs)
 
         if sample == Confuser.NONE_ID:
             return None
