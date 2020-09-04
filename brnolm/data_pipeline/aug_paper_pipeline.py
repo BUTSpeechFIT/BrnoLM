@@ -135,8 +135,8 @@ class Confuser:
 class StatisticsCorruptor:
     def __init__(self, streams, confuser, ins_rate, protected=[]):
         assert len(streams[0]) == len(streams[1])
-        self.inputs = streams[0]
-        self.targets = streams[1]
+        self.inputs = streams[0].numpy().tolist()
+        self.targets = streams[1].numpy().tolist()
         self.confuser = confuser
         self.ir = ins_rate
         self.protected = protected
@@ -151,10 +151,13 @@ class StatisticsCorruptor:
         nb_dels = 0
         nb_inss = 0
 
-        while i < len(self.inputs):
-            if self.inputs[i] in self.protected:
-                targets.append(self.targets[i])
-                inputs.append(self.inputs[i])
+        in_len = len(self.inputs)
+        while i < in_len:
+            in_token = self.inputs[i]
+            target_token = self.targets[i]
+            if in_token in self.protected:
+                targets.append(target_token)
+                inputs.append(in_token)
                 i += 1
                 continue
 
@@ -163,21 +166,20 @@ class StatisticsCorruptor:
             roll = random.random()
             if roll < self.ir:  # Insertion
                 insertion = self.confuser.replace(None)
-                targets.append(self.targets[i])
+                targets.append(target_token)
                 inputs.append(insertion)
                 nb_inss += 1
             else:
-                in_token = self.inputs[i]
-                repl = self.confuser.replace(in_token.item())
-                if repl == self.inputs[i]:  # Correct token
-                    targets.append(self.targets[i])
-                    inputs.append(self.inputs[i])
+                repl = self.confuser.replace(in_token)
+                if repl == in_token:  # Correct token
+                    targets.append(target_token)
+                    inputs.append(in_token)
                     i += 1
                 elif repl is None:  # Deletion
                     i += 1
                     nb_dels += 1
                 else:  # Substitution
-                    targets.append(self.targets[i])
+                    targets.append(target_token)
                     inputs.append(repl)
                     i += 1
                     nb_subs += 1
