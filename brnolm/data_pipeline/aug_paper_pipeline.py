@@ -65,17 +65,29 @@ def cut_counts(confusions, mincount):
     return {ref_word: counts for ref_word, counts in confusions.items() if total_counts[ref_word] > 0}
 
 
+class Sampler:
+    def __init__(self, replacements, probs):
+        self.replacements = replacements
+        self.probs = probs
+
+    def __call__(self, id, size):
+        return np.random.choice(self.replacements[id], size, p=self.probs[id])
+
+
 class SampleCache:
     def __init__(self, ids, replacements, probs, size=1000):
         self.replacements = replacements
         self.size = size
         self.probs = probs
-        self.cache = {id: np.random.choice(replacements[id], size, p=probs[id]) for id in ids}
+        self.sampler = Sampler(replacements, probs)
+        self.cache = {id: self.sampler(id, size) for id in ids}
+        self.backup_cache = {id: self.sampler(id, size) for id in ids}
         self.next = {id: 0 for id in ids}
 
     def get_next(self, id):
         if self.next[id] == len(self.cache[id]):
-            self.cache[id] = np.random.choice(self.replacements[id], (self.size), p=self.probs[id])
+            self.cache[id] = self.backup_cache[id]
+            self.backup_cache[id] = self.sampler(id, self.size)
             self.next[id] = 0
 
         sample = self.cache[id][self.next[id]]
