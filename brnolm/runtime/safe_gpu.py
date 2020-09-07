@@ -5,12 +5,14 @@ import fcntl
 import logging
 
 
-LOCK_FILENAME = '/tmp/gpu-lock-magic-ibenes-RaNdOM'
+LOCK_FILENAME = '/tmp/gpu-lock-magic-RaNdOM-This_Name-NEED_BE-THE_SAME-Across_Users'
 
 
 def setup_cuda_visible_devices():
     free_gpu = subprocess.check_output('nvidia-smi -q | grep "Minor\|Processes" | grep "None" -B1 | tr -d " " | cut -d ":" -f2 | sed -n "1p"', shell=True)
     os.environ['CUDA_VISIBLE_DEVICES'] = free_gpu.decode().strip()
+
+    return free_gpu
 
 
 class SafeLocker:
@@ -36,12 +38,15 @@ class GPUOwner:
                 logger.info(f'lock acquired')
                 setup_cuda_visible_devices()
 
+                if not os.environ['CUDA_VISIBLE_DEVICES']:
+                    raise RuntimeError("No free GPUs found. Someone didn't properly declare their gpu resource?")
+
                 logger.info(f"Got CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
                 time.sleep(debug_sleep)
 
                 try:
                     self.placeholder = placeholder_fn()
                 except RuntimeError:
-                    logger.error(f'failed to acquire placeholder')
+                    logger.error(f'Failed to acquire placeholder, truly marvellous')
                     raise
             logger.info(f'lock released')
