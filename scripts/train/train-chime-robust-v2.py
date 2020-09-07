@@ -9,7 +9,7 @@ from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.threaded import OndemandDataProvider
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor, form_input_targets, LazyBatcher, TemplSplitterClean
 
-from brnolm.runtime.safe_gpu import GPUOwner
+from safe_gpu.safe_gpu import GPUOwner
 from brnolm.runtime.runtime_utils import init_seeds, epoch_summary, TransposeWrapper
 from brnolm.runtime.runtime_multifile import repackage_hidden
 from brnolm.runtime.evaluation import EnblockEvaluator

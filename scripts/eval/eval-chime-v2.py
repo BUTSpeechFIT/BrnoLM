@@ -5,7 +5,7 @@ import logging
 import math
 import torch
 
-from brnolm.runtime.safe_gpu import GPUOwner
+from safe_gpu.safe_gpu import GPUOwner
 from brnolm.runtime.runtime_utils import init_seeds
 from brnolm.runtime.evaluation import SubstitutionalEnblockEvaluator_v2
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor

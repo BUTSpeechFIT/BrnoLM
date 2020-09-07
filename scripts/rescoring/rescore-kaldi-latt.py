@@ -6,7 +6,7 @@ import torch
 
 import brnolm.language_models.vocab as vocab
 from brnolm.rescoring.segment_scoring import SegmentScorer
-from brnolm.runtime.safe_gpu import GPUOwner
+from safe_gpu.safe_gpu import GPUOwner
 
 import typing
 
