@@ -36,7 +36,8 @@ class GPUOwner:
         if logger is None:
             logger = logging
 
-        with open(LOCK_FILENAME, 'w') as f:
+        os.umask(0)  # do not mask any permission out by default
+        with open(os.open(LOCK_FILENAME, os.O_CREAT | os.O_WRONLY, 0o666), 'w') as f:
             logger.info(f'acquiring lock')
 
             with SafeLocker(f):
