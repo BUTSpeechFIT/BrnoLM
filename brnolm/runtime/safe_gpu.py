@@ -15,6 +15,11 @@ def setup_cuda_visible_devices():
     return free_gpu
 
 
+def pytorch_placeholder():
+    import torch
+    return torch.zeros((1), device='cuda')
+
+
 class SafeLocker:
     def __init__(self, fd):
         self._fd = fd
@@ -27,7 +32,7 @@ class SafeLocker:
 
 
 class GPUOwner:
-    def __init__(self, placeholder_fn, logger=None, debug_sleep=0.0):
+    def __init__(self, placeholder_fn=pytorch_placeholder, logger=None, debug_sleep=0.0):
         if logger is None:
             logger = logging
 
