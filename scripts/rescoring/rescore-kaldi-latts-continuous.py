@@ -80,6 +80,9 @@ def main(args):
                     else:
                         custom_h0 = None
                         nb_new_hs += 1
+                elif args.carry_over == 'never':
+                    custom_h0 = None
+                    nb_new_hs += 1
                 else:
                     raise ValueError(f'Unsupported carry over regime {args.carry_over}')
                 for hyp_no, cost in result.scores.items():
@@ -104,7 +107,7 @@ if __name__ == '__main__':
                         help='word -> int map; Kaldi style "words.txt"')
     parser.add_argument('--latt-unk', type=str, default='<unk>',
                         help='unk symbol used in the lattice')
-    parser.add_argument('--carry-over', default='always', choices=['always', 'speaker'],
+    parser.add_argument('--carry-over', default='always', choices=['always', 'speaker', 'never'],
                         help='When to use the previous hidden state')
     parser.add_argument('--cuda', action='store_true',
                         help='use CUDA')
