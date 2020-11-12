@@ -29,8 +29,8 @@ class SegmentScorer:
         min_len = min(len(hyp) for hyp in seg_hyps.values())
         max_len = max(len(hyp) for hyp in seg_hyps.values())
         total_len = sum(len(hyp) for hyp in seg_hyps.values())
-        nb_oovs = sum(sum(token == self.lm.vocab.unk_word for token in hyp) for hyp in seg_hyps.values())
-        logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs}")
+        nb_oovs = sum(sum(self.lm.vocab[token] == self.lm.vocab.unk_ind for token in hyp) for hyp in seg_hyps.values())
+        logging.info(f"{seg_name}: {nb_hyps} hypotheses, min/max/avg length {min_len}/{max_len}/{total_len/nb_hyps:.1f} tokens, # OOVs {nb_oovs} ({nb_oovs/total_len*100:.2f} %)")
 
         if custom_h0:
             h0_provider = lambda batch_size: lstm_h0_provider(custom_h0, batch_size)

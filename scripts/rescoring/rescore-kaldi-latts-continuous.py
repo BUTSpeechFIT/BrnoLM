@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import logging
@@ -33,12 +33,12 @@ def spk_sess(segment_name):
 
 
 def main(args):
-    logging.basicConfig(level=logging.DEBUG)
     logging.info(args)
 
     mode = 'chars' if args.character_lm else 'words'
 
     logging.info("reading lattice vocab...")
+
     with open(args.latt_vocab, 'r') as f:
         latt_vocab = vocab.vocab_from_kaldi_wordlist(f, unk_word=args.latt_unk)
 
@@ -63,7 +63,7 @@ def main(args):
             segment, trans_id = brnolm.kaldi_itf.split_nbest_key(fields[0])
 
             word_ids = [int(wi) for wi in fields[1:]]
-            ids = translate_latt_to_model(word_ids, latt_vocab, lm.vocab, mode)
+            words = translate_latt_to_model(word_ids, latt_vocab, lm.vocab, mode)
 
             if not curr_seg:
                 curr_seg = segment
@@ -88,7 +88,7 @@ def main(args):
                 curr_seg = segment
                 segment_utts = {}
 
-            segment_utts[trans_id] = ids
+            segment_utts[trans_id] = words
 
         # Last segment:
         result = scorer.process_segment(curr_seg, segment_utts)
@@ -116,7 +116,9 @@ if __name__ == '__main__':
     parser.add_argument('out_filename', help='where to put the LM scores')
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.DEBUG)
+
     if args.cuda:
-        gpu_owner = GPUOwner(lambda: torch.zeros((1), device='cuda'))
+        gpu_owner = GPUOwner()
 
     main(args)
