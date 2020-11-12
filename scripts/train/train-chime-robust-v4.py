@@ -3,13 +3,12 @@
 import argparse
 import logging
 import math
-import pickle
 import torch
 
 from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.threaded import OndemandDataProvider
 from brnolm.data_pipeline.aug_paper_pipeline import form_input_targets, LazyBatcher, TemplSplitterClean
-from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
+from brnolm.data_pipeline.aug_paper_pipeline import Corruptor, TargetCorruptor
 
 from safe_gpu.safe_gpu import GPUOwner
 from brnolm.runtime.runtime_utils import init_seeds, epoch_summary, TransposeWrapper
@@ -38,10 +37,7 @@ def main(args):
     print("preparing training data...")
     train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
     train_streams = form_input_targets(train_ids)
-    with open(args.statistics, 'rb') as f:
-        summary = pickle.load(f)
-    confuser = Confuser(summary.confusions, lm.vocab, mincount=args.mincount)
-    corrupted_provider = StatisticsCorruptor(train_streams, confuser, args.ins_rate, protected=[lm.vocab['</s>']])
+    corrupted_provider = TargetCorruptor(train_streams, args.subs_rate, len(lm.vocab), args.del_rate, args.ins_rate, protected=[lm.vocab['</s>']])
     batch_former = LazyBatcher(args.batch_size, corrupted_provider)
     train_data = TemplSplitterClean(args.target_seq_len, batch_former)
     train_data_stream = OndemandDataProvider(TransposeWrapper(train_data), args.cuda)
@@ -50,11 +46,12 @@ def main(args):
     if args.augmented_eval:
         # Evaluation (de facto LR scheduling) with input corruption did not
         # help during the CHiMe-6 evaluation
+        raise RuntimeError("Not supported")
         evaluator = SubstitutionalEnblockEvaluator_v2(
             lm, args.valid,
             batch_size=10,
             target_seq_len=args.target_seq_len,
-            corruptor=lambda data: StatisticsCorruptor(data, confuser, args.ins_rate, protected=['</s>']),
+            corruptor=lambda data: Corruptor(data, args.ins_rate, protected=['</s>']),
             nb_rounds=args.eval_rounds,
         )
     else:
@@ -123,10 +120,10 @@ if __name__ == '__main__':
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
-    parser.add_argument('--statistics', type=str,
-                        help='Use these statistics to determine exact mistakes')
-    parser.add_argument('--mincount', type=int, default=0,
-                        help='Minimal count of mistakes from statistics required for sampling')
+    parser.add_argument('--subs-rate', type=float, required=True,
+                        help='what ratio of tokens should be inserted')
+    parser.add_argument('--del-rate', type=float, required=True,
+                        help='what ratio of tokens should be removed')
     parser.add_argument('--ins-rate', type=float, required=True,
                         help='what ratio of tokens should be inserted')
     parser.add_argument('--augmented-eval', action='store_true',

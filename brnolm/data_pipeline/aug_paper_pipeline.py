@@ -58,6 +58,120 @@ class Corruptor:
         return torch.tensor(inputs), torch.tensor(targets)
 
 
+class InputTargetCorruptor:
+    def __init__(self, streams, input_subs_rate, target_subs_rate, subs_range, del_rate, ins_rate, protected=[]):
+        assert len(streams[0]) == len(streams[1])
+        self.inputs = streams[0]
+        self.targets = streams[1]
+        self.isr = input_subs_rate
+        self.tsr = target_subs_rate
+        self.subs_range = subs_range
+        self.dr = del_rate
+        self.ir = ins_rate
+        self.protected = protected
+
+    def provide(self):
+        inputs = []
+        targets = []
+
+        i = 0
+        nb_nonprotected = 0
+        nb_subs = 0
+        nb_target_subs = 0
+        nb_dels = 0
+        nb_inss = 0
+        while i < len(self.inputs):
+            if self.inputs[i] in self.protected:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
+                i += 1
+                continue
+
+            nb_nonprotected += 1
+
+            roll = random.random()
+            if roll < self.dr:
+                i += 1
+                nb_dels += 1
+            elif roll < self.dr + self.isr:
+                targets.append(self.targets[i])
+                inputs.append(random.randrange(self.subs_range))
+                i += 1
+                nb_subs += 1
+            elif roll < self.dr + self.isr:
+                targets.append(self.targets[i])
+                inputs.append(random.randrange(self.subs_range))
+                i += 1
+                nb_subs += 1
+            elif roll < self.dr + self.isr + self.ir:
+                targets.append(self.targets[i])
+                inputs.append(random.randrange(self.subs_range))
+                nb_inss += 1
+            elif roll < self.dr + self.isr + self.ir + self.tsr:
+                targets.append(random.randrange(self.subs_range))
+                inputs.append(self.inputs[i])
+                i += 1
+                nb_target_subs += 1
+            else:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
+                i += 1
+
+        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % S_t: {100.0*nb_target_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
+        return torch.tensor(inputs), torch.tensor(targets)
+
+
+class TargetCorruptor:
+    def __init__(self, streams, subs_rate, subs_range, del_rate, ins_rate, protected=[]):
+        assert len(streams[0]) == len(streams[1])
+        self.inputs = streams[0].numpy().tolist()
+        self.targets = streams[1].numpy().tolist()
+        self.sr = subs_rate
+        self.subs_range = subs_range
+        self.dr = del_rate
+        self.ir = ins_rate
+        self.protected = protected
+
+    def provide(self):
+        inputs = []
+        targets = []
+
+        i = 0
+        nb_nonprotected = 0
+        nb_subs = 0
+        nb_dels = 0
+        nb_inss = 0
+        while i < len(self.inputs):
+            if self.targets[i] in self.protected:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
+                i += 1
+                continue
+
+            nb_nonprotected += 1
+
+            roll = random.random()
+            if roll < self.dr:
+                i += 1
+                nb_dels += 1
+            elif roll < self.dr + self.sr:
+                targets.append(random.randrange(self.subs_range))
+                inputs.append(self.inputs[i])
+                i += 1
+                nb_subs += 1
+            elif roll < self.dr + self.sr + self.ir:
+                targets.append(self.targets[i])
+                inputs.append(random.randrange(self.subs_range))
+                nb_inss += 1
+            else:
+                targets.append(self.targets[i])
+                inputs.append(self.inputs[i])
+                i += 1
+
+        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
+        return torch.tensor(inputs), torch.tensor(targets)
+
+
 def cut_counts(confusions, mincount):
     counts = {ref_word: {k: v for k, v in nums.items() if v >= mincount} for ref_word, nums in confusions.items()}
     total_counts = {ref_word: sum(counts[ref_word].values()) for ref_word in counts}

@@ -4,7 +4,7 @@ import argparse
 import torch
 
 from brnolm.language_models import lstm_model, vocab, language_model
-from brnolm.language_models.decoders import FullSoftmaxDecoder
+from brnolm.language_models.decoders import CustomLossFullSoftmaxDecoder
 
 
 if __name__ == '__main__':
@@ -23,6 +23,8 @@ if __name__ == '__main__':
                         help='number of layers')
     parser.add_argument('--dropout', type=float, default=0.2,
                         help='dropout applied to layers (0 = no dropout)')
+    parser.add_argument('--label-smoothing', type=float,
+                        help='amount of correct probability to distribute across others')
     parser.add_argument('--tied', action='store_true',
                         help='tie the word embedding and softmax weights')
     parser.add_argument('--seed', type=int, default=1111,
@@ -51,7 +53,7 @@ if __name__ == '__main__':
         args.nlayers, args.dropout, args.tied
     )
 
-    decoder = FullSoftmaxDecoder(args.nhid, len(vocabulary))
+    decoder = CustomLossFullSoftmaxDecoder(args.nhid, len(vocabulary))
 
     lm = language_model.LanguageModel(model, decoder, vocabulary)
     torch.save(lm, args.save)
