@@ -7,12 +7,9 @@ import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
-from brnolm.data_pipeline.reading import tokens_from_fn
-from brnolm.data_pipeline.multistream import batchify
-from brnolm.data_pipeline.temporal_splitting import TemporalSplits
-from brnolm.data_pipeline.threaded import OndemandDataProvider
+from brnolm.data_pipeline.pipeline_factories import args_factory, yaml_factory
 
-from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds, epoch_summary
+from brnolm.runtime.runtime_utils import init_seeds, epoch_summary
 from brnolm.runtime.runtime_multifile import repackage_hidden
 from brnolm.runtime.evaluation import EnblockEvaluator
 
@@ -32,15 +29,11 @@ def main(args):
     print(lm.model)
 
     print("preparing training data...")
-    train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
-    train_batched = batchify(train_ids, args.batch_size, cuda=False)
-    train_data_tb = TemporalSplits(
-        train_batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    train_data = TransposeWrapper(train_data_tb)
-    train_data_stream = OndemandDataProvider(train_data, args.cuda)
+
+    if args.train_yaml:
+        train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, args.cuda)
+    else:
+        train_data_stream, single_stream_len = args_factory(args, lm)
 
     print("preparing validation data...")
     evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=args.tokenize_regime)
@@ -60,7 +53,7 @@ def main(args):
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
     for epoch in range(1, args.epochs + 1):
-        logger = ProgressLogger(epoch, args.log_interval, lr, len(train_batched) // args.target_seq_len)
+        logger = ProgressLogger(epoch, args.log_interval, lr, single_stream_len // args.target_seq_len)
 
         hidden = None
         for X, targets in train_data_stream:
@@ -100,6 +93,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', type=str, required=True,
                         help='location of the train corpus')
+    parser.add_argument('--train-yaml', type=str,
+                        help='location of a yaml config describing the training dataset')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
     parser.add_argument('--tokenize-regime', default='words', choices=['words', 'chars'],
