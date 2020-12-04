@@ -7,7 +7,7 @@ import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
-from brnolm.data_pipeline.pipeline_factories import args_factory, yaml_factory
+from brnolm.data_pipeline.pipeline_factories import plain_factory, yaml_factory
 
 from brnolm.runtime.runtime_utils import init_seeds, epoch_summary
 from brnolm.runtime.runtime_multifile import repackage_hidden
@@ -33,7 +33,14 @@ def main(args):
     if args.train_yaml:
         train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, args.cuda)
     else:
-        train_data_stream, single_stream_len = args_factory(args, lm)
+        train_data_stream, single_stream_len = plain_factory(
+            data_fn=args.train,
+            lm=lm,
+            tokenize_regime=args.tokenize_regime,
+            batch_size=args.batch_size,
+            place_on_cuda=args.cuda,
+            target_seq_len=args.target_seq_len,
+        )
 
     print("preparing validation data...")
     evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=args.tokenize_regime)
