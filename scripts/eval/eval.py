@@ -4,9 +4,32 @@ import argparse
 import logging
 import math
 import torch
+from safe_gpu.safe_gpu import GPUOwner
 
 from brnolm.runtime.runtime_utils import init_seeds
 from brnolm.runtime.evaluation import EnblockEvaluator
+
+
+def main(args):
+    print(args)
+
+    init_seeds(args.seed, args.cuda)
+
+    print("loading model...")
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.load, map_location=device)
+    print(lm)
+
+    evaluator = EnblockEvaluator(
+        lm,
+        args.data,
+        args.batch_size,
+        args.target_seq_len,
+        tokenize_regime='chars' if args.characters else 'words',
+    )
+    eval_report = evaluator.evaluate()
+
+    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
 
 
 if __name__ == '__main__':
@@ -29,22 +52,8 @@ if __name__ == '__main__':
     parser.add_argument('--load', type=str, required=True,
                         help='where to load a model from')
     args = parser.parse_args()
-    print(args)
 
-    init_seeds(args.seed, args.cuda)
+    if args.cuda:
+        gpu_owner = GPUOwner()
 
-    print("loading model...")
-    device = torch.device('cuda') if args.cuda else torch.device('cpu')
-    lm = torch.load(args.load, map_location=device)
-    print(lm)
-
-    evaluator = EnblockEvaluator(
-        lm,
-        args.data,
-        args.batch_size,
-        args.target_seq_len,
-        tokenize_regime='chars' if args.characters else 'words',
-    )
-    eval_report = evaluator.evaluate()
-
-    print('total loss {:.1f} | per token loss {:5.2f} | ppl {:8.2f}'.format(eval_report.total_loss, eval_report.loss_per_token, math.exp(eval_report.loss_per_token)))
+    main(args)
