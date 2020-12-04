@@ -31,10 +31,6 @@ def main(args):
         lm.cuda()
     print(lm.model)
 
-    tokenize_regime = 'words'
-    if args.characters:
-        tokenize_regime = 'chars'
-
     print("preparing training data...")
     train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
     train_batched = batchify(train_ids, args.batch_size, cuda=False)
@@ -47,7 +43,7 @@ def main(args):
     train_data_stream = OndemandDataProvider(train_data, args.cuda)
 
     print("preparing validation data...")
-    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=tokenize_regime)
+    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=args.tokenize_regime)
 
     def val_loss_fn():
         return evaluator.evaluate().loss_per_token
@@ -106,8 +102,8 @@ if __name__ == '__main__':
                         help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
-    parser.add_argument('--characters', action='store_true',
-                        help='work on character level, whitespace is significant')
+    parser.add_argument('--tokenize-regime', default='words', choices=['words', 'chars'],
+                        help='words are separated by whitespace, characters take whitespace into account')
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
