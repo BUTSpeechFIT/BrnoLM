@@ -8,7 +8,7 @@ import torch
 
 from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.threaded import OndemandDataProvider
-from brnolm.data_pipeline.aug_paper_pipeline import form_input_targets, LazyBatcher, TemplSplitterClean
+from brnolm.data_pipeline.aug_paper_pipeline import CleanStreamsProvider, LazyBatcher, TemplSplitterClean
 from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
 
 from safe_gpu.safe_gpu import GPUOwner
@@ -37,11 +37,11 @@ def main(args):
 
     print("preparing training data...")
     train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
-    train_streams = form_input_targets(train_ids)
+    train_streams_provider = CleanStreamsProvider(train_ids)
     with open(args.statistics, 'rb') as f:
         summary = pickle.load(f)
     confuser = Confuser(summary.confusions, lm.vocab, mincount=args.mincount)
-    corrupted_provider = StatisticsCorruptor(train_streams, confuser, args.ins_rate, protected=[lm.vocab['</s>']])
+    corrupted_provider = StatisticsCorruptor(train_streams_provider, confuser, args.ins_rate, protected=[lm.vocab['</s>']])
     batch_former = LazyBatcher(args.batch_size, corrupted_provider)
     train_data = TemplSplitterClean(args.target_seq_len, batch_former)
     train_data_stream = OndemandDataProvider(TransposeWrapper(train_data), args.cuda)

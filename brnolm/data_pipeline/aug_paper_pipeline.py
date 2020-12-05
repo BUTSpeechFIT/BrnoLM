@@ -258,15 +258,18 @@ class Confuser:
 
 
 class StatisticsCorruptor:
-    def __init__(self, streams, confuser, ins_rate, protected=[]):
-        assert len(streams[0]) == len(streams[1])
-        self.inputs = streams[0].numpy().tolist()
-        self.targets = streams[1].numpy().tolist()
+    def __init__(self, streams_provider, confuser, ins_rate, protected=[]):
+        self.streams_provider = streams_provider
         self.confuser = confuser
         self.ir = ins_rate
         self.protected = protected
 
     def provide(self):
+        streams = self.streams_provider.provide()
+        assert len(streams[0]) == len(streams[1])
+        self.inputs = streams[0]
+        self.targets = streams[1]
+
         inputs = []
         targets = []
 
