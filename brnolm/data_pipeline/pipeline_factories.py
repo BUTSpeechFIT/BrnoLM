@@ -1,3 +1,4 @@
+import pickle
 import yaml
 
 from brnolm.data_pipeline.reading import tokens_from_fn
@@ -5,7 +6,9 @@ from brnolm.data_pipeline.reading import tokens_from_fn
 # from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
 
-from brnolm.data_pipeline.aug_paper_pipeline import Corruptor, CleanStreamsProvider, LazyBatcher, TemplSplitterClean
+from brnolm.data_pipeline.aug_paper_pipeline import CleanStreamsProvider, LazyBatcher, TemplSplitterClean
+from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
+from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
 
 from brnolm.runtime.runtime_utils import TransposeWrapper
 
@@ -56,5 +59,24 @@ def corruptor_factory(config, lm, input_streams_provider):
             protected=[lm.vocab['</s>']]
         )
         return corruptor
+
+    elif config['type'] == 'input-1gram':
+        stats_filename = config['statistics']
+        ins_rate = float(config['insertion-rate'])
+        mincount = int(config['mincount'])
+
+        with open(stats_filename, 'rb') as f:
+            summary = pickle.load(f)
+        confuser = Confuser(summary.confusions, lm.vocab, mincount=mincount)
+
+        corrupted_provider = StatisticsCorruptor(
+            input_streams_provider,
+            confuser,
+            ins_rate,
+            protected=[lm.vocab['</s>']],
+        )
+
+        return corrupted_provider
+
     else:
-        raise ValueError("Unsupported type of corruptor: {config['type']}")
+        raise ValueError(f"Unsupported type of corruptor: {config['type']}")
