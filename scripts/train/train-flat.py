@@ -59,6 +59,7 @@ def main(args):
     val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm)
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
+    patience_ticks = 0
     for epoch in range(1, args.epochs + 1):
         logger = ProgressLogger(epoch, args.log_interval, lr, single_stream_len // args.target_seq_len)
 
@@ -90,9 +91,12 @@ def main(args):
         if not best_val_loss or val_loss < best_val_loss:
             torch.save(lm, args.save)
             best_val_loss = val_loss
+            patience_ticks = 0
         else:
-            lr /= 2.0
-            pass
+            patience_ticks += 1
+            if patience_ticks > args.patience:
+                lr /= 2.0
+                patience_ticks = 0
 
 
 if __name__ == '__main__':
@@ -116,6 +120,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--lr', type=float, default=20,
                         help='initial learning rate')
+    parser.add_argument('--patience', type=int, default=0,
+                        help='how many epochs since last improvement to wait till reducing LR')
     parser.add_argument('--beta', type=float, default=0,
                         help='L2 regularization penalty')
     parser.add_argument('--clip', type=float, default=0.25,
