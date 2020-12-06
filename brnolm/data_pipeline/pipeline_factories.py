@@ -10,6 +10,7 @@ from brnolm.data_pipeline.aug_paper_pipeline import CleanStreamsProvider, LazyBa
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
 from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
 from brnolm.data_pipeline.aug_paper_pipeline import TargetCorruptor
+from brnolm.data_pipeline.aug_paper_pipeline import InputTargetCorruptor
 
 from brnolm.runtime.runtime_utils import TransposeWrapper
 
@@ -87,6 +88,23 @@ def corruptor_factory(config, lm, input_streams_provider):
         corrupted_provider = TargetCorruptor(
             input_streams_provider,
             subs_rate,
+            len(lm.vocab),
+            del_rate,
+            ins_rate,
+            protected=[lm.vocab['</s>']]
+        )
+        return corrupted_provider
+
+    if config['type'] == 'input_target-0gram':
+        in_subs_rate = float(config['input-substitution-rate'])
+        target_subs_rate = float(config['target-substitution-rate'])
+        del_rate = float(config['deletion-rate'])
+        ins_rate = float(config['insertion-rate'])
+
+        corrupted_provider = InputTargetCorruptor(
+            input_streams_provider,
+            in_subs_rate,
+            target_subs_rate,
             len(lm.vocab),
             del_rate,
             ins_rate,
