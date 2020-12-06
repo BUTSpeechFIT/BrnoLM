@@ -70,10 +70,8 @@ class Corruptor:
 
 
 class InputTargetCorruptor:
-    def __init__(self, streams, input_subs_rate, target_subs_rate, subs_range, del_rate, ins_rate, protected=[]):
-        assert len(streams[0]) == len(streams[1])
-        self.inputs = streams[0]
-        self.targets = streams[1]
+    def __init__(self, streams_provider, input_subs_rate, target_subs_rate, subs_range, del_rate, ins_rate, protected=[]):
+        self.streams_provider = streams_provider
         self.isr = input_subs_rate
         self.tsr = target_subs_rate
         self.subs_range = subs_range
@@ -82,6 +80,11 @@ class InputTargetCorruptor:
         self.protected = protected
 
     def provide(self):
+        streams = self.streams_provider.provide()
+        assert len(streams[0]) == len(streams[1])
+        self.inputs = streams[0]
+        self.targets = streams[1]
+
         inputs = []
         targets = []
 
