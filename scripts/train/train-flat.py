@@ -24,22 +24,21 @@ def main(args):
     init_seeds(args.seed, args.cuda)
 
     print("loading model...")
-    lm = torch.load(args.load)
-    if args.cuda:
-        lm.cuda()
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.load).to(device)
     print(lm.model)
 
     print("preparing training data...")
 
     if args.train_yaml:
-        train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, args.cuda)
+        train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, device)
     else:
         train_data_stream, single_stream_len = plain_factory(
             data_fn=args.train,
             lm=lm,
             tokenize_regime=args.tokenize_regime,
             batch_size=args.batch_size,
-            place_on_cuda=args.cuda,
+            device=device,
             target_seq_len=args.target_seq_len,
         )
 

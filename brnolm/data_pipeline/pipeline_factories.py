@@ -15,7 +15,7 @@ from brnolm.data_pipeline.aug_paper_pipeline import InputTargetCorruptor
 from brnolm.runtime.runtime_utils import TransposeWrapper
 
 
-def yaml_factory(yaml_fn, lm, place_on_cuda):
+def yaml_factory(yaml_fn, lm, device):
     with open(yaml_fn) as f:
         config = yaml.load(f, Loader=yaml.CLoader)
 
@@ -26,13 +26,13 @@ def yaml_factory(yaml_fn, lm, place_on_cuda):
         lm=lm,
         tokenize_regime=config['tokenize_regime'],
         batch_size=config['batch_size'],
-        place_on_cuda=place_on_cuda,
+        device=device,
         target_seq_len=config['target_seq_len'],
         corruptor_config=corruptor_config,
     )
 
 
-def plain_factory(data_fn, lm, tokenize_regime, batch_size, place_on_cuda, target_seq_len, corruptor_config=None):
+def plain_factory(data_fn, lm, tokenize_regime, batch_size, device, target_seq_len, corruptor_config=None):
     train_ids = tokens_from_fn(data_fn, lm.vocab, randomize=False, regime=tokenize_regime)
     nb_batches = len(train_ids) // batch_size
     train_streams_provider = CleanStreamsProvider(train_ids)
@@ -43,7 +43,7 @@ def plain_factory(data_fn, lm, tokenize_regime, batch_size, place_on_cuda, targe
     batch_former = LazyBatcher(batch_size, train_streams_provider)
     train_data = TemplSplitterClean(target_seq_len, batch_former)
     train_data = TransposeWrapper(train_data)
-    return OndemandDataProvider(train_data, place_on_cuda), nb_batches
+    return OndemandDataProvider(train_data, device), nb_batches
 
 
 def corruptor_factory(config, lm, input_streams_provider):
