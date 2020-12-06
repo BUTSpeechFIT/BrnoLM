@@ -9,6 +9,7 @@ from brnolm.data_pipeline.threaded import OndemandDataProvider
 from brnolm.data_pipeline.aug_paper_pipeline import CleanStreamsProvider, LazyBatcher, TemplSplitterClean
 from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
 from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
+from brnolm.data_pipeline.aug_paper_pipeline import TargetCorruptor
 
 from brnolm.runtime.runtime_utils import TransposeWrapper
 
@@ -76,6 +77,21 @@ def corruptor_factory(config, lm, input_streams_provider):
             protected=[lm.vocab['</s>']],
         )
 
+        return corrupted_provider
+
+    if config['type'] == 'target-0gram':
+        subs_rate = float(config['substitution-rate'])
+        del_rate = float(config['deletion-rate'])
+        ins_rate = float(config['insertion-rate'])
+
+        corrupted_provider = TargetCorruptor(
+            input_streams_provider,
+            subs_rate,
+            len(lm.vocab),
+            del_rate,
+            ins_rate,
+            protected=[lm.vocab['</s>']]
+        )
         return corrupted_provider
 
     else:
