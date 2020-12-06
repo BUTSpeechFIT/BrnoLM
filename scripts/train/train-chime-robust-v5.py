@@ -7,7 +7,7 @@ import torch
 
 from brnolm.data_pipeline.reading import tokens_from_fn
 from brnolm.data_pipeline.threaded import OndemandDataProvider
-from brnolm.data_pipeline.aug_paper_pipeline import InputTargetCorruptor, form_input_targets, LazyBatcher, TemplSplitterClean
+from brnolm.data_pipeline.aug_paper_pipeline import InputTargetCorruptor, CleanStreamsProvider, LazyBatcher, TemplSplitterClean
 
 from safe_gpu.safe_gpu import GPUOwner
 from brnolm.runtime.runtime_utils import init_seeds, epoch_summary, TransposeWrapper
@@ -35,7 +35,7 @@ def main(args):
 
     print("preparing training data...")
     train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
-    train_streams = form_input_targets(train_ids)
+    train_streams = CleanStreamsProvider(train_ids)
     corrupted_provider = InputTargetCorruptor(train_streams, args.subs_rate, args.target_subs_rate, len(lm.vocab), args.del_rate, args.ins_rate, protected=[lm.vocab['</s>']])
     batch_former = LazyBatcher(args.batch_size, corrupted_provider)
     train_data = TemplSplitterClean(args.target_seq_len, batch_former)
