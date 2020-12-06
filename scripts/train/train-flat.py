@@ -3,6 +3,7 @@
 import argparse
 import logging
 import math
+import sys
 import torch
 
 from safe_gpu.safe_gpu import GPUOwner
@@ -102,10 +103,11 @@ def main(args):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='[%(levelname)s::%(name)s] %(message)s')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train', type=str, required=True,
-                        help='location of the train corpus')
-    parser.add_argument('--train-yaml', type=str,
-                        help='location of a yaml config describing the training dataset')
+    train_definition = parser.add_mutually_exclusive_group()
+    train_definition.add_argument('--train-yaml', type=str,
+                                  help='location of a yaml config describing the training dataset')
+    train_definition.add_argument('--train', type=str,
+                                  help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
     parser.add_argument('--tokenize-regime', default='words', choices=['words', 'chars'],
@@ -144,6 +146,9 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=str, required=True,
                         help='path to save the final model')
     args = parser.parse_args()
+    if not args.train and not args.train_yaml:
+        sys.stderr.write('Either --train of --train-yaml have to be provided\n')
+        sys.exit(2)
 
     if args.cuda:
         gpu_owner = GPUOwner()
