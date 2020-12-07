@@ -41,7 +41,10 @@ def plain_factory(data_fn, lm, tokenize_regime, batch_size, device, target_seq_l
         train_streams_provider = corruptor_factory(corruptor_config, lm, train_streams_provider)
 
     batch_former = LazyBatcher(batch_size, train_streams_provider)
-    train_data = TemplSplitterClean(target_seq_len, batch_former)
+    if lm.model.in_len == 1:
+        train_data = TemplSplitterClean(target_seq_len, batch_former)
+    else:
+        raise NotImplementedError("Current data pipeline only supports `in_len==1`.")
     train_data = TransposeWrapper(train_data)
     return OndemandDataProvider(train_data, device), nb_batches
 
