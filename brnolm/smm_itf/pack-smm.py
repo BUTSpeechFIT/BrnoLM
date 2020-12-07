@@ -5,7 +5,6 @@ import os
 import pickle
 
 import sys
-sys.path.append('/mnt/matylda5/ibenes/projects/santosh-lm/smm-pytorch')
 from smm import SMM
 import utils
 
