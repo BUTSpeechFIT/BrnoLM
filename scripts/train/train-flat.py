@@ -96,9 +96,12 @@ def main(args):
         else:
             patience_ticks += 1
             if patience_ticks > args.patience:
-                for p in optim.param_groups:
-                    p['lr'] /= 2.0
                 lr /= 2.0
+                if lr < args.min_lr:
+                    print(f"Learning has reached {lr}, training was supposed to stop at {args.min_lr}, stopping.")
+                    break
+                for p in optim.param_groups:
+                    p['lr'] = lr
                 patience_ticks = 0
 
 
@@ -122,8 +125,10 @@ if __name__ == '__main__':
     parser.add_argument('--target-seq-len', type=int, default=35,
                         help='sequence length')
 
-    parser.add_argument('--lr', type=float, default=20,
+    parser.add_argument('--lr', type=float, default=2.0,
                         help='initial learning rate')
+    parser.add_argument('--min-lr', type=float, default=1e-3,
+                        help='minimal learning rate, once reached, training stops')
     parser.add_argument('--patience', type=int, default=0,
                         help='how many epochs since last improvement to wait till reducing LR')
     parser.add_argument('--beta', type=float, default=0,
