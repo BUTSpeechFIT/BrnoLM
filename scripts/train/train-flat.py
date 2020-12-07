@@ -57,6 +57,7 @@ def main(args):
     best_val_loss = None
 
     val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm)
+    best_val_loss = initial_val_loss
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
     patience_ticks = 0
@@ -88,13 +89,15 @@ def main(args):
         print(epoch_summary(epoch, logger.nb_updates(), logger.time_since_creation(), val_loss))
 
         # Save the model if the validation loss is the best we've seen so far.
-        if not best_val_loss or val_loss < best_val_loss:
+        if val_loss < best_val_loss:
             torch.save(lm, args.save)
             best_val_loss = val_loss
             patience_ticks = 0
         else:
             patience_ticks += 1
             if patience_ticks > args.patience:
+                for p in optim.param_groups:
+                    p['lr'] /= 2.0
                 lr /= 2.0
                 patience_ticks = 0
 
