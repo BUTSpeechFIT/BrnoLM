@@ -3,16 +3,14 @@
 import argparse
 import logging
 import math
+import sys
 import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
-from brnolm.data_pipeline.reading import tokens_from_fn
-from brnolm.data_pipeline.multistream import batchify
-from brnolm.data_pipeline.temporal_splitting import TemporalSplits
-from brnolm.data_pipeline.threaded import OndemandDataProvider
+from brnolm.data_pipeline.pipeline_factories import plain_factory, yaml_factory
 
-from brnolm.runtime.runtime_utils import TransposeWrapper, init_seeds, epoch_summary
+from brnolm.runtime.runtime_utils import init_seeds, epoch_summary
 from brnolm.runtime.runtime_multifile import repackage_hidden
 from brnolm.runtime.evaluation import EnblockEvaluator
 
@@ -26,28 +24,26 @@ def main(args):
     init_seeds(args.seed, args.cuda)
 
     print("loading model...")
-    lm = torch.load(args.load)
-    if args.cuda:
-        lm.cuda()
+    device = torch.device('cuda') if args.cuda else torch.device('cpu')
+    lm = torch.load(args.load).to(device)
     print(lm.model)
 
-    tokenize_regime = 'words'
-    if args.characters:
-        tokenize_regime = 'chars'
-
     print("preparing training data...")
-    train_ids = tokens_from_fn(args.train, lm.vocab, randomize=False, regime=tokenize_regime)
-    train_batched = batchify(train_ids, args.batch_size, cuda=False)
-    train_data_tb = TemporalSplits(
-        train_batched,
-        nb_inputs_necessary=lm.model.in_len,
-        nb_targets_parallel=args.target_seq_len
-    )
-    train_data = TransposeWrapper(train_data_tb)
-    train_data_stream = OndemandDataProvider(train_data, args.cuda)
+
+    if args.train_yaml:
+        train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, device)
+    else:
+        train_data_stream, single_stream_len = plain_factory(
+            data_fn=args.train,
+            lm=lm,
+            tokenize_regime=args.tokenize_regime,
+            batch_size=args.batch_size,
+            device=device,
+            target_seq_len=args.target_seq_len,
+        )
 
     print("preparing validation data...")
-    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=tokenize_regime)
+    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=args.tokenize_regime)
 
     def val_loss_fn():
         return evaluator.evaluate().loss_per_token
@@ -63,8 +59,9 @@ def main(args):
     val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm)
 
     optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
+    patience_ticks = 0
     for epoch in range(1, args.epochs + 1):
-        logger = ProgressLogger(epoch, args.log_interval, lr, len(train_batched) // args.target_seq_len)
+        logger = ProgressLogger(epoch, args.log_interval, lr, single_stream_len // args.target_seq_len)
 
         hidden = None
         for X, targets in train_data_stream:
@@ -94,20 +91,26 @@ def main(args):
         if not best_val_loss or val_loss < best_val_loss:
             torch.save(lm, args.save)
             best_val_loss = val_loss
+            patience_ticks = 0
         else:
-            lr /= 2.0
-            pass
+            patience_ticks += 1
+            if patience_ticks > args.patience:
+                lr /= 2.0
+                patience_ticks = 0
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='[%(levelname)s::%(name)s] %(message)s')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train', type=str, required=True,
-                        help='location of the train corpus')
+    train_definition = parser.add_mutually_exclusive_group()
+    train_definition.add_argument('--train-yaml', type=str,
+                                  help='location of a yaml config describing the training dataset')
+    train_definition.add_argument('--train', type=str,
+                                  help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
-    parser.add_argument('--characters', action='store_true',
-                        help='work on character level, whitespace is significant')
+    parser.add_argument('--tokenize-regime', default='words', choices=['words', 'chars'],
+                        help='words are separated by whitespace, characters take whitespace into account')
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 
@@ -118,6 +121,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--lr', type=float, default=20,
                         help='initial learning rate')
+    parser.add_argument('--patience', type=int, default=0,
+                        help='how many epochs since last improvement to wait till reducing LR')
     parser.add_argument('--beta', type=float, default=0,
                         help='L2 regularization penalty')
     parser.add_argument('--clip', type=float, default=0.25,
@@ -140,6 +145,9 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=str, required=True,
                         help='path to save the final model')
     args = parser.parse_args()
+    if not args.train and not args.train_yaml:
+        sys.stderr.write('Either --train of --train-yaml have to be provided\n')
+        sys.exit(2)
 
     if args.cuda:
         gpu_owner = GPUOwner()
