@@ -5,6 +5,7 @@ import torch
 
 from brnolm.language_models import lstm_model, vocab, language_model
 from brnolm.language_models.decoders import CustomLossFullSoftmaxDecoder
+from brnolm.language_models.encoders import FlatEmbedding
 
 
 if __name__ == '__main__':
@@ -48,8 +49,10 @@ if __name__ == '__main__':
 
     print("building model...")
 
+    encoder = FlatEmbedding(len(vocabulary), args.emsize)
+
     model = lstm_model.LSTMLanguageModel(
-        len(vocabulary), args.emsize, args.nhid,
+        encoder, args.emsize, args.nhid,
         args.nlayers, args.dropout, args.tied
     )
 

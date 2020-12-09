@@ -4,26 +4,20 @@ import torch.nn as nn
 class LSTMLanguageModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, token_encoder, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
         super(LSTMLanguageModel, self).__init__()
         self.drop = nn.Dropout(dropout)
-        self.encoder = nn.Embedding(ntoken, ninp)
+        self.encoder = token_encoder
         self.rnn = nn.LSTM(ninp, nhid, nlayers, dropout=dropout, batch_first=True)
 
         if tie_weights:
             raise NotImplementedError
-
-        self.init_weights()
 
         self.nhid = nhid
         self.nlayers = nlayers
 
         self.batch_first = True
         self.in_len = 1
-
-    def init_weights(self):
-        initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
         emb = self.drop(self.encoder(input))
