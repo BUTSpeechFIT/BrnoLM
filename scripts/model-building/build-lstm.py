@@ -61,5 +61,8 @@ if __name__ == '__main__':
 
     decoder = CustomLossFullSoftmaxDecoder(args.nhid, len(vocabulary))
 
+    if args.tied:
+        decoder.projection.weight = encoder.embeddings.weight
+
     lm = language_model.LanguageModel(model, decoder, vocabulary)
     torch.save(lm, args.save)
