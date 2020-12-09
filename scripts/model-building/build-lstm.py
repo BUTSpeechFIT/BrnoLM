@@ -52,8 +52,11 @@ if __name__ == '__main__':
     encoder = FlatEmbedding(len(vocabulary), args.emsize)
 
     model = lstm_model.LSTMLanguageModel(
-        encoder, args.emsize, args.nhid,
-        args.nlayers, args.dropout, args.tied
+        token_encoder=encoder,
+        dim_input=args.emsize,
+        dim_lstm=args.nhid,
+        nb_layers=args.nlayers,
+        dropout=args.dropout
     )
 
     decoder = CustomLossFullSoftmaxDecoder(args.nhid, len(vocabulary))

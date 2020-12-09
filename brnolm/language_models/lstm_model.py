@@ -4,17 +4,14 @@ import torch.nn as nn
 class LSTMLanguageModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, token_encoder, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, token_encoder, dim_input, dim_lstm, nb_layers, dropout=0.5):
         super(LSTMLanguageModel, self).__init__()
         self.drop = nn.Dropout(dropout)
         self.encoder = token_encoder
-        self.rnn = nn.LSTM(ninp, nhid, nlayers, dropout=dropout, batch_first=True)
+        self.rnn = nn.LSTM(dim_input, dim_lstm, nb_layers, dropout=dropout, batch_first=True)
 
-        if tie_weights:
-            raise NotImplementedError
-
-        self.nhid = nhid
-        self.nlayers = nlayers
+        self.dim_lstm = dim_lstm
+        self.nlayers = nb_layers
 
         self.batch_first = True
         self.in_len = 1
@@ -36,8 +33,8 @@ class LSTMLanguageModel(nn.Module):
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
-        return (weight.new_zeros(self.nlayers, bsz, self.nhid),
-                weight.new_zeros(self.nlayers, bsz, self.nhid))
+        return (weight.new_zeros(self.nlayers, bsz, self.dim_lstm),
+                weight.new_zeros(self.nlayers, bsz, self.dim_lstm))
 
     def extract_output_from_h(self, hidden_state):
         h = hidden_state[0]  # hidden state is (h, c)
