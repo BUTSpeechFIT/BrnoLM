@@ -13,6 +13,7 @@ def str_time(dur):
 
 
 def measure_decoder(name, decoder, x, t, nb_measurements):
+    decoder.train()
     # heating up, allocating memory etc.
     loss, nb_tokens = decoder.neg_log_prob(x, t)
     loss.backward()
@@ -31,8 +32,23 @@ def measure_decoder(name, decoder, x, t, nb_measurements):
         fwd_times.append(t1 - t0)
         bwd_times.append(t2 - t1)
         total_times.append(t2 - t0)
+    print(f'{name} train: loss: {total_loss/nb_measurements:.2f}, fwd {str_time(min(fwd_times))}, bwd {str_time(min(bwd_times))}, total {str_time(min(total_times))} (avg total: {str_time(sum(total_times)/len(total_times))})')
 
-    print(f'{name}: loss: {total_loss/nb_measurements:.2f}, fwd {str_time(min(fwd_times))}, bwd {str_time(min(bwd_times))}, total {str_time(min(total_times))} (avg total: {str_time(sum(total_times)/len(total_times))})')
+    decoder.eval()
+    # heating up, allocating memory etc.
+    loss, nb_tokens = decoder.neg_log_prob(x, t)
+    loss.backward()
+
+    test_times = []
+    test_loss = 0.0
+    with torch.no_grad():
+        for _ in range(nb_measurements):
+            t0 = time.time()
+            loss, nb_tokens = decoder.neg_log_prob(x, t)
+            t1 = time.time()
+            test_times.append(t1-t0)
+            test_loss += loss.item() / nb_tokens
+    print(f'{name} test: loss: {test_loss/nb_measurements:.2f}, total {str_time(min(test_times))} (avg total: {str_time(sum(test_times)/len(test_times))})')
 
 
 def main(args):
