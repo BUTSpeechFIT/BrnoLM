@@ -13,20 +13,26 @@ def str_time(dur):
 
 
 def measure_decoder(name, decoder, x, t, nb_measurements):
+    # heating up, allocating memory etc.
+    loss, nb_tokens = decoder.neg_log_prob(x, t)
+    loss.backward()
+
     fwd_times = []
     bwd_times = []
     total_times = []
+    total_loss = 0.0
     for _ in range(nb_measurements):
         t0 = time.time()
         loss, nb_tokens = decoder.neg_log_prob(x, t)
         t1 = time.time()
         loss.backward()
         t2 = time.time()
+        total_loss += loss.item() / nb_tokens
         fwd_times.append(t1 - t0)
         bwd_times.append(t2 - t1)
         total_times.append(t2 - t0)
 
-    print(f'{name}: fwd {str_time(min(fwd_times))}, bwd {str_time(min(bwd_times))}, total {str_time(min(total_times))}')
+    print(f'{name}: loss: {total_loss/nb_measurements:.2f}, fwd {str_time(min(fwd_times))}, bwd {str_time(min(bwd_times))}, total {str_time(min(total_times))} (avg total: {str_time(sum(total_times)/len(total_times))})')
 
 
 def main(args):
