@@ -28,6 +28,8 @@ if __name__ == '__main__':
                         help='amount of correct probability to distribute across others')
     parser.add_argument('--tied', action='store_true',
                         help='tie the word embedding and softmax weights')
+    parser.add_argument('--embedding-init-range', type=float, default=0.1,
+                        help='Range for initialization of both input and output weight matrices')
     parser.add_argument('--seed', type=int, default=1111,
                         help='random seed')
     parser.add_argument('--save', type=str, required=True,
@@ -49,7 +51,7 @@ if __name__ == '__main__':
 
     print("building model...")
 
-    encoder = FlatEmbedding(len(vocabulary), args.emsize)
+    encoder = FlatEmbedding(len(vocabulary), args.emsize, init_range=args.embedding_init_range)
 
     model = lstm_model.LSTMLanguageModel(
         token_encoder=encoder,
@@ -59,7 +61,7 @@ if __name__ == '__main__':
         dropout=args.dropout
     )
 
-    decoder = CustomLossFullSoftmaxDecoder(args.nhid, len(vocabulary))
+    decoder = CustomLossFullSoftmaxDecoder(args.nhid, len(vocabulary), init_range=args.embedding_init_range)
 
     if args.tied:
         decoder.projection.weight = encoder.embeddings.weight
