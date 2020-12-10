@@ -77,7 +77,7 @@ class LabelSmoothedNLLLoss:
         assert len(targets.shape) == 1
         assert len(preds.shape) == 2
 
-        smooth_targets = torch.zeros_like(preds).scatter(1, targets, 1)
+        smooth_targets = torch.zeros_like(preds).scatter_(1, targets.unsqueeze(1), 1)
         smooth_targets = smooth_targets * (1 - eps) + (1 - smooth_targets) * eps / n_class
         loss = -(smooth_targets * preds).sum(axis=1)
 
