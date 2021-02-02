@@ -64,7 +64,7 @@ class IndependentLinesEvaluator:
         h0_provider = self.lm.get_custom_h0_provider(prefix.split())
 
         loss = 0.0
-        data_stream = OndemandDataProvider(Batcher(self.lines, self.max_batch_size, self.max_tokens), cuda=False)
+        data_stream = OndemandDataProvider(Batcher(self.lines, self.max_batch_size, self.max_tokens), device=self.lm.device)
         total_actual_size = 0
         with torch.no_grad():
             for i, batch in enumerate(data_stream):
