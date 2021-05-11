@@ -1,4 +1,7 @@
 import torch
+import pickle
+import zipfile
+
 from brnolm.data_pipeline.masked import masked_tensor_from_sentences
 
 
@@ -123,3 +126,27 @@ class LanguageModel(torch.nn.Module):
             return h
 
         return h0_provider
+
+
+def torchscript_export(lm, path):
+    s_model = torch.jit.script(lm.model)
+    s_dec = torch.jit.script(lm.decoder)
+    with zipfile.ZipFile(path, 'w') as zip_f:
+        with zip_f.open('decoder.zip', 'w') as dec_f:
+            torch.jit.save(s_dec, dec_f)
+        with zip_f.open('model.zip', 'w') as model_f:
+            torch.jit.save(s_model, model_f)
+        with zip_f.open('vocabulary.pickle', 'w') as vocab_f:
+            pickle.dump(lm.vocab, vocab_f)
+
+
+def torchscript_import(path):
+    with zipfile.ZipFile(path) as zip_f:
+        with zip_f.open('decoder.zip') as decoder_f:
+            decoder = torch.jit.load(decoder_f)
+        with zip_f.open('model.zip') as model_f:
+            model = torch.jit.load(model_f)
+        with zip_f.open('vocabulary.pickle') as vocab_f:
+            vocab = pickle.load(vocab_f)
+
+    return LanguageModel(model, decoder, vocab)
