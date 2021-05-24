@@ -140,13 +140,20 @@ def torchscript_export(lm, path):
             pickle.dump(lm.vocab, vocab_f)
 
 
+class UnreadableModelError(Exception):
+    pass
+
+
 def torchscript_import(path):
-    with zipfile.ZipFile(path) as zip_f:
-        with zip_f.open('decoder.zip') as decoder_f:
-            decoder = torch.jit.load(decoder_f)
-        with zip_f.open('model.zip') as model_f:
-            model = torch.jit.load(model_f)
-        with zip_f.open('vocabulary.pickle') as vocab_f:
-            vocab = pickle.load(vocab_f)
+    try:
+        with zipfile.ZipFile(path) as zip_f:
+            with zip_f.open('decoder.zip') as decoder_f:
+                decoder = torch.jit.load(decoder_f)
+            with zip_f.open('model.zip') as model_f:
+                model = torch.jit.load(model_f)
+            with zip_f.open('vocabulary.pickle') as vocab_f:
+                vocab = pickle.load(vocab_f)
+    except zipfile.BadZipFile as e:
+        raise UnreadableModelError(e)
 
     return LanguageModel(model, decoder, vocab)
