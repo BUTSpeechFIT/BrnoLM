@@ -14,6 +14,7 @@ class LSTMLanguageModel(nn.Module):
 
         self.dim_lstm = dim_lstm
         self.nlayers = nb_layers
+        self.nhid = dim_lstm
 
         self.batch_first = True
         self.in_len = 1
