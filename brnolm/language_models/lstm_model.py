@@ -40,7 +40,7 @@ class LSTMLanguageModel(nn.Module):
 
     @torch.jit.export
     def init_hidden(self, bsz: int):
-        weight = self.encoder.weight.data
+        weight = self.state_dict()['rnn.weight_ih_l0']
         return (weight.new_zeros(self.nlayers, bsz, self.nhid),
                 weight.new_zeros(self.nlayers, bsz, self.nhid))
 
