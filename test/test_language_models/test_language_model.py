@@ -9,6 +9,7 @@ from brnolm.language_models.lstm_model import LSTMLanguageModel
 from brnolm.language_models.decoders import FullSoftmaxDecoder
 from brnolm.language_models.language_model import LanguageModel
 from brnolm.language_models.vocab import Vocabulary
+from brnolm.language_models.encoders import FlatEmbedding
 
 
 class FakeModel(torch.nn.Module):
@@ -116,7 +117,8 @@ class CPU_BatchNLLCorrectnessTests(unittest.TestCase, BatchNLLCorrectnessTestsBa
     def setUp(self):
         vocab = Vocabulary('<unk>', 0)
         vocab.add_from_text('a b c')
-        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        encoder = FlatEmbedding(len(vocab), 10)
+        model = LSTMLanguageModel(encoder, dim_input=10, dim_lstm=10, nb_layers=2, dropout=0.0)
         decoder = FullSoftmaxDecoder(10, len(vocab))
         self.lm = LanguageModel(model, decoder, vocab)
 
@@ -126,7 +128,8 @@ class CUDA_BatchNLLCorrectnessTests(unittest.TestCase, BatchNLLCorrectnessTestsB
     def setUp(self):
         vocab = Vocabulary('<unk>', 0)
         vocab.add_from_text('a b c')
-        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        encoder = FlatEmbedding(len(vocab), 10)
+        model = LSTMLanguageModel(encoder, dim_input=10, dim_lstm=10, nb_layers=2, dropout=0.0)
         decoder = FullSoftmaxDecoder(10, len(vocab))
         self.lm = LanguageModel(model, decoder, vocab).to('cuda')
 
@@ -164,6 +167,7 @@ class CPU_CustomInitialHiddenStateTests(test.common.TestCase, CustomInitialHidde
     def setUp(self):
         vocab = Vocabulary('<unk>', 0)
         vocab.add_from_text('a b c')
-        model = LSTMLanguageModel(len(vocab), ninp=10, nhid=10, nlayers=2, dropout=0.0)
+        encoder = FlatEmbedding(len(vocab), 10)
+        model = LSTMLanguageModel(encoder, dim_input=10, dim_lstm=10, nb_layers=2, dropout=0.0)
         decoder = FullSoftmaxDecoder(10, len(vocab))
         self.lm = LanguageModel(model, decoder, vocab)
