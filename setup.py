@@ -10,7 +10,7 @@ def get_long_desc():
 
 setup(
     name='brnolm',
-    version='0.1.1',
+    version='0.2.0',
     python_requires='>=3.6',
     packages=[
         'brnolm',
