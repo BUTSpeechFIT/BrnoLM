@@ -8,7 +8,7 @@ import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
-from brnolm.data_pipeline.pipeline_factories import plain_factory, yaml_factory
+from brnolm.data_pipeline.pipeline_factories import plain_factory_noepoch, yaml_factory_noepoch
 
 from brnolm.runtime.runtime_utils import init_seeds
 from brnolm.runtime.runtime_multifile import repackage_hidden
@@ -31,9 +31,9 @@ def main(args):
     print("preparing training data...")
 
     if args.train_yaml:
-        train_data_stream, single_stream_len = yaml_factory(args.train_yaml, lm, device)
+        train_data_stream, single_stream_len = yaml_factory_noepoch(args.train_yaml, lm, device)
     else:
-        train_data_stream, single_stream_len = plain_factory(
+        train_data_stream, single_stream_len = plain_factory_noepoch(
             data_fn=args.train,
             lm=lm,
             tokenize_regime=args.tokenize_regime,

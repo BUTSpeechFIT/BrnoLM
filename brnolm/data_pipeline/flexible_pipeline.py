@@ -25,41 +25,44 @@ class StreamingCorruptor:
         self.to_be_input = next(self.stream_provider)
         self.to_be_target = next(self.stream_provider)
 
-    def __iter__(self):
+    def __next__(self):
         nb_nonprotected = 0
         nb_subs = 0
         nb_dels = 0
         nb_inss = 0
 
-        while True:
-            if self.to_be_input in self.protected:
-                yield self.to_be_input, self.to_be_target
-                self._move_one_token()
-                continue
+        if self.to_be_input in self.protected:
+            x, t = self.to_be_input, self.to_be_target
+            self._move_one_token()
+            return x, t
 
-            nb_nonprotected += 1
+        nb_nonprotected += 1
 
-            roll = random.random()
-            if roll < self.dr:
-                self._move_one_token()
-                nb_dels += 1
-            elif roll < self.dr + self.sr:
-                yield random.randrange(self.subs_range), self.to_be_target
-                self._move_one_token()
-                nb_subs += 1
-            elif roll < self.dr + self.sr + self.ir:
-                yield random.randrange(self.subs_range), self.to_be_target
-                nb_inss += 1
-            else:
-                yield self.to_be_input, self.to_be_target
-                self._move_one_token()
-                continue
-
-        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
+        roll = random.random()
+        if roll < self.dr:
+            self._move_one_token()
+            nb_dels += 1
+            return next(self)
+        elif roll < self.dr + self.sr:
+            x, t = random.randrange(self.subs_range), self.to_be_target
+            self._move_one_token()
+            nb_subs += 1
+            return x, t
+        elif roll < self.dr + self.sr + self.ir:
+            x, t = random.randrange(self.subs_range), self.to_be_target
+            nb_inss += 1
+            return x, t
+        else:
+            x, t = self.to_be_input, self.to_be_target
+            self._move_one_token()
+            return x, t
 
     def _move_one_token(self):
         self.to_be_input = self.to_be_target
         self.to_be_target = next(self.stream_provider)
+
+    def summary(self):
+        print(f'len {len(self.inputs)}, proper {nb_nonprotected}| D: {100.0*nb_dels/nb_nonprotected:.2f} % ({nb_dels}) S: {100.0*nb_subs/nb_nonprotected:.2f} % ({nb_subs}) I: {100.0*nb_inss/nb_nonprotected:.2f} % ({nb_inss})')
 
 
 class BatchingSlicingIterator:
