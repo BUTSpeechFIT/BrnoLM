@@ -1,7 +1,8 @@
+import os
 import pickle
 import yaml
 
-from brnolm.data_pipeline.reading import tokens_from_fn
+from brnolm.data_pipeline.reading import tokens_from_fn, WordIdProvider
 # from brnolm.data_pipeline.multistream import batchify
 # from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
@@ -11,7 +12,8 @@ from brnolm.data_pipeline.aug_paper_pipeline import Corruptor
 from brnolm.data_pipeline.aug_paper_pipeline import StatisticsCorruptor, Confuser
 from brnolm.data_pipeline.aug_paper_pipeline import TargetCorruptor
 from brnolm.data_pipeline.aug_paper_pipeline import InputTargetCorruptor
-from brnolm.data_pipeline.flexible_pipeline import SequenceReadingHead, StreamingCorruptor, BatchingSlicingIterator
+from brnolm.data_pipeline.flexible_pipeline import FileReadingHead
+from brnolm.data_pipeline.flexible_pipeline import StreamingCorruptor, BatchingSlicingIterator
 
 from brnolm.runtime.runtime_utils import TransposeWrapper
 
@@ -68,16 +70,37 @@ def yaml_factory_noepoch(yaml_fn, lm, device):
 
 
 def plain_factory_noepoch(data_fn, lm, tokenize_regime, batch_size, device, target_seq_len, corruptor_config=None):
-    train_ids = tokens_from_fn(data_fn, lm.vocab, randomize=False, regime=tokenize_regime)
+    # train_ids = tokens_from_fn(data_fn, lm.vocab, randomize=False, regime=tokenize_regime)
+    # reading_heads = [SequenceReadingHead(train_ids, start=k*len(train_ids)//batch_size) for k in range(batch_size)]
 
-    reading_heads = [SequenceReadingHead(train_ids, start=k*len(train_ids)//batch_size) for k in range(batch_size)]
+    assert tokenize_regime == 'words'
+    word_id_provider = WordIdProvider(lm.vocab)
+    proper_head_distance = os.stat(data_fn).st_size // batch_size
 
-    augmentors = [streaming_corruptor_factory(corruptor_config, lm.vocab, head) for head in reading_heads]
+    reading_heads = [FileReadingHead(data_fn, i*proper_head_distance, word_id_provider) for i in range(batch_size)]
+
+    if corruptor_config:
+        final_heads = [streaming_corruptor_factory(corruptor_config, lm.vocab, head) for head in reading_heads]
+    else:
+        final_heads = [NoCorruptionUnpacker(head) for head in reading_heads]
 
     assert lm.model.in_len == 1
-    batch_producing_iterator = BatchingSlicingIterator(augmentors, target_seq_len)
+    batch_producing_iterator = BatchingSlicingIterator(final_heads, target_seq_len)
 
-    return OndemandDataProvider(batch_producing_iterator, device), len(train_ids)//batch_size
+    return OndemandDataProvider(batch_producing_iterator, device), 0  # len(train_ids)//batch_size
+
+
+class NoCorruptionUnpacker:
+    def __init__(self, token_stream):
+        self.stream = token_stream
+        self.last = next(token_stream)
+
+    def __next__(self):
+        x = self.last
+        t = next(self.stream)
+        self.last = t
+
+        return x, t
 
 
 def streaming_corruptor_factory(config, vocab, input_streams_provider):

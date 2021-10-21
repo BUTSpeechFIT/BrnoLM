@@ -13,6 +13,40 @@ class SequenceReadingHead:
         return val
 
 
+class FileReadingHead:
+    def __init__(self, fn, pos, tokenizer, buffer_size=512):
+        self.file = open(fn, 'rb')
+        self.set_pos(pos)
+        self.tokenizer = tokenizer
+
+        self.buffer = []
+        self.idx_in_buffer = 0
+        self.target_buffer_size = buffer_size
+
+    def __next__(self):
+        assert self.idx_in_buffer <= len(self.buffer)
+        if self.idx_in_buffer == len(self.buffer):
+            self.refill_buffer()
+
+        tok = self.buffer[self.idx_in_buffer]
+        self.idx_in_buffer += 1
+
+        return tok
+
+    def set_pos(self, pos):
+        self.file.seek(pos)
+        self.file.readline()  # move to next full line
+
+    def refill_buffer(self):
+        while len(self.buffer) < self.target_buffer_size:
+            line = self.file.readline().decode()
+            if line == '':
+                self.set_pos(0)
+            self.buffer.extend(self.tokenizer(line))
+
+        self.idx_in_buffer = 0
+
+
 class StreamingCorruptor:
     def __init__(self, stream_provider, subs_rate, subs_range, del_rate, ins_rate, protected=[]):
         self.stream_provider = stream_provider
