@@ -16,7 +16,8 @@ class SequenceReadingHead:
 class FileReadingHead:
     def __init__(self, fn, pos, tokenizer, buffer_size=512):
         self.file = open(fn, 'rb')
-        self.set_pos(pos)
+        self.file.seek(pos)
+        self.file.readline()  # move to next full line
         self.tokenizer = tokenizer
 
         self.buffer = []
@@ -25,6 +26,7 @@ class FileReadingHead:
 
     def __next__(self):
         assert self.idx_in_buffer <= len(self.buffer)
+
         if self.idx_in_buffer == len(self.buffer):
             self.refill_buffer()
 
@@ -33,15 +35,12 @@ class FileReadingHead:
 
         return tok
 
-    def set_pos(self, pos):
-        self.file.seek(pos)
-        self.file.readline()  # move to next full line
-
     def refill_buffer(self):
+        self.buffer.clear()
         while len(self.buffer) < self.target_buffer_size:
             line = self.file.readline().decode()
             if line == '':
-                self.set_pos(0)
+                self.file.seek(0)
             self.buffer.extend(self.tokenizer(line))
 
         self.idx_in_buffer = 0
