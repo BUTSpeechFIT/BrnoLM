@@ -14,6 +14,14 @@ def char_splitter(line, sentence_end_token=None):
         return chars + [sentence_end_token]
 
 
+class WordIdProvider:
+    def __init__(self, vocab):
+        self.vocab = vocab
+
+    def __call__(self, text):
+        return [self.vocab[w] for w in text.split()]
+
+
 def tokens_from_file(f, vocab, randomize, regime='words'):
     ids = []
 
