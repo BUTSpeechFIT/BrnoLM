@@ -14,10 +14,14 @@ class LSTMLanguageModel(nn.Module):
 
         self.dim_lstm = dim_lstm
         self.nlayers = nb_layers
-        self.nhid = dim_lstm
+        # self.nhid = dim_lstm
 
         self.batch_first = True
         self.in_len = 1
+
+    @property
+    def nhid(self):
+        return self.rnn.weight_hh_l1.shape[1]
 
     def init_weights(self):
         initrange = 0.1
