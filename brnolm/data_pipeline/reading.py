@@ -22,6 +22,16 @@ class WordIdProvider:
         return [self.vocab[w] for w in text.split()]
 
 
+class CharIdProvider:
+    def __init__(self, vocab, sentence_end_token='</s>'):
+        self.vocab = vocab
+        self.sentence_end_token = sentence_end_token
+
+    def __call__(self, text):
+        chars = [self.sentence_end_token if c == '\n' else c for c in text]
+        return [self.vocab[c] for c in chars]
+
+
 def tokens_from_file(f, vocab, randomize, regime='words'):
     ids = []
 

@@ -2,7 +2,7 @@ import os
 import pickle
 import yaml
 
-from brnolm.data_pipeline.reading import tokens_from_fn, WordIdProvider
+from brnolm.data_pipeline.reading import tokens_from_fn, WordIdProvider, CharIdProvider
 # from brnolm.data_pipeline.multistream import batchify
 # from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
@@ -73,8 +73,13 @@ def plain_factory_noepoch(data_fn, lm, tokenize_regime, batch_size, device, targ
     # train_ids = tokens_from_fn(data_fn, lm.vocab, randomize=False, regime=tokenize_regime)
     # reading_heads = [SequenceReadingHead(train_ids, start=k*len(train_ids)//batch_size) for k in range(batch_size)]
 
-    assert tokenize_regime == 'words'
-    word_id_provider = WordIdProvider(lm.vocab)
+    if tokenize_regime == 'words':
+        word_id_provider = WordIdProvider(lm.vocab)
+    elif tokenize_regime == 'chars':
+        word_id_provider = CharIdProvider(lm.vocab)
+    else:
+        raise ValueError(f'Unsupported tokenization regime {tokenize_regime}')
+
     proper_head_distance = os.stat(data_fn).st_size // batch_size
 
     reading_heads = [FileReadingHead(data_fn, i*proper_head_distance, word_id_provider) for i in range(batch_size)]
