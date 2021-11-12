@@ -67,7 +67,7 @@ def main(args):
     hidden = None
     for X, targets in train_data_stream:
         if hidden is None:
-            hidden = lm.model.init_hidden(args.batch_size)
+            hidden = lm.model.init_hidden(X.shape[0])
 
         hidden = repackage_hidden(hidden)
 
