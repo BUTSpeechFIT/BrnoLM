@@ -40,6 +40,18 @@ class SegmentScorer:
         X, rev_map = self.dict_to_list(seg_hyps)  # reform the word sequences
         ys, hs = self.get_scores(X, h0_provider)
 
+        if min_len == 0:
+            zero_len_keys = [key for key in seg_hyps if len(seg_hyps[key]) == 0]
+            if len(zero_len_keys) > 1:
+                logging.warning(f'Multiple empty hypotheses for segment {seg_name}: {" ".join(zero_len_keys)}')
+
+            assert len(ys) == len(seg_hyps) - len(zero_len_keys)
+
+            rev_map[len(rev_map)] = zero_len_keys[0]
+            ys.append(0)
+            hidden = h0_provider(1)
+            hs.append((hidden[0][:, 0], hidden[1][:, 0]))
+
         return SegmentScoringResult(
             {rev_map[i]: lm_cost for i, lm_cost in enumerate(ys)},
             {rev_map[i]: h for i, h in enumerate(hs)},
@@ -49,6 +61,8 @@ class SegmentScorer:
         list_of_lists = []
         rev_map = {}
         for key in utts_map:
+            if len(utts_map[key]) == 0:
+                continue
             rev_map[len(list_of_lists)] = key
             list_of_lists.append(utts_map[key])
 
