@@ -2,7 +2,7 @@ import os
 import pickle
 import yaml
 
-from brnolm.data_pipeline.reading import tokens_from_fn, WordIdProvider, CharIdProvider
+from brnolm.data_pipeline.reading import tokens_from_fn, WordIdProvider, CharIdProvider, WordIdLineEndProvider
 # from brnolm.data_pipeline.multistream import batchify
 # from brnolm.data_pipeline.temporal_splitting import TemporalSplits
 from brnolm.data_pipeline.threaded import OndemandDataProvider
@@ -75,6 +75,8 @@ def plain_factory_noepoch(data_fn, lm, tokenize_regime, batch_size, device, targ
 
     if tokenize_regime == 'words':
         word_id_provider = WordIdProvider(lm.vocab)
+    elif tokenize_regime == 'words-lines':
+        word_id_provider = WordIdLineEndProvider(lm.vocab)
     elif tokenize_regime == 'chars':
         word_id_provider = CharIdProvider(lm.vocab)
     else:

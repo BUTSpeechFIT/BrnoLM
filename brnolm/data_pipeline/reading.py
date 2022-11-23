@@ -22,6 +22,15 @@ class WordIdProvider:
         return [self.vocab[w] for w in text.split()]
 
 
+class WordIdLineEndProvider:
+    def __init__(self, vocab, line_end='</s>'):
+        self.vocab = vocab
+        self.line_end = line_end
+
+    def __call__(self, text):
+        return [self.vocab[w] for w in text.split() + [self.line_end]]
+
+
 class CharIdProvider:
     def __init__(self, vocab, sentence_end_token='</s>'):
         self.vocab = vocab
