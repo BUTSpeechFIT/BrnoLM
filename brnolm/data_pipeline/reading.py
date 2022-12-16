@@ -41,17 +41,36 @@ class CharIdProvider:
         return [self.vocab[c] for c in chars]
 
 
-def tokens_from_file(f, vocab, randomize, regime='words'):
+class TokenizerFactory:
+    tokenize_regimes = {
+        'words': WordIdProvider,
+        'words-lines': WordIdLineEndProvider,
+        'chars': CharIdProvider,
+    }
+
+    regimes_names = list(tokenize_regimes.keys())
+
+    def register_parameter(self, parser, param_name):
+        parser.add_argument(
+            param_name, 
+            choices=self.regimes_names,
+            help='words are separated by whitespace, words-lines turns \\n into </s>, chars are verbatim + \\n => </s>'
+        )
+
+    def construct_tokenizer(self, regime, vocab):
+        if regime in self.tokenize_regimes:
+            return self.tokenize_regimes[regime](vocab)
+        else:
+            raise ValueError(f'Unsupported tokenization regime {regime}')
+
+
+tokenizer_factory = TokenizerFactory()
+
+
+def tokens_from_file(f, vocab, randomize, tokenizer):
     ids = []
 
     lines = f.read().split('\n')
-
-    if regime == 'words':
-        tokenizer = word_splitter
-    elif regime == 'chars':
-        tokenizer = lambda line: char_splitter(line, '</s>')
-    else:
-        raise ValueError("unsupported regime {}".format(regime))
 
     if randomize:
         import random
@@ -64,9 +83,9 @@ def tokens_from_file(f, vocab, randomize, regime='words'):
     return torch.LongTensor(ids)
 
 
-def tokens_from_fn(fn, vocab, randomize, regime='words'):
+def tokens_from_fn(fn, vocab, randomize, tokenizer):
     with open(fn, 'r') as f:
-        return tokens_from_file(f, vocab, randomize, regime)
+        return tokens_from_file(f, vocab, randomize, tokenizer)
 
 
 def get_independent_lines(f, vocab):

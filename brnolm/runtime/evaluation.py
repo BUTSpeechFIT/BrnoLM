@@ -79,7 +79,7 @@ class IndependentLinesEvaluator:
 
 
 class EnblockEvaluator:
-    def __init__(self, lm, data_fn, batch_size, target_seq_len, logger=None, tokenize_regime='words'):
+    def __init__(self, lm, data_fn, batch_size, target_seq_len, tokenizer, logger=None):
         if logger:
             self.logger = logger
         else:
@@ -87,7 +87,7 @@ class EnblockEvaluator:
         self.batch_size = batch_size
         self.lm = lm
 
-        ids = tokens_from_fn(data_fn, lm.vocab, regime=tokenize_regime, randomize=False)
+        ids = tokens_from_fn(data_fn, lm.vocab, tokenizer=tokenizer, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
         nb_oovs = oov_mask.sum().item()
 
