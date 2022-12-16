@@ -114,8 +114,8 @@ if __name__ == '__main__':
                                   help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
-    parser.add_argument('--tokenize-regime', default='words', choices=['words', 'words-lines', 'chars'],
-                        help='words are separated by whitespace, characters take whitespace into account')
+    tokenizer_factory.register_parameter(parser, '--tokenize-regime')
+
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
 

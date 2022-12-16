@@ -48,6 +48,15 @@ class TokenizerFactory:
         'chars': CharIdProvider,
     }
 
+    regimes_names = list(tokenize_regimes.keys())
+
+    def register_parameter(self, parser, param_name):
+        parser.add_argument(
+            param_name, 
+            choices=self.regimes_names,
+            help='words are separated by whitespace, words-lines turns \\n into </s>, chars are verbatim + \\n => </s>'
+        )
+
     def construct_tokenizer(self, regime, vocab):
         if regime in self.tokenize_regimes:
             return self.tokenize_regimes[regime](vocab)
