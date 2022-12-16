@@ -8,6 +8,7 @@ import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
+from brnolm.data_pipeline.reading import tokenizer_factory
 from brnolm.data_pipeline.pipeline_factories import plain_factory_noepoch, yaml_factory_noepoch
 
 from brnolm.runtime.runtime_utils import init_seeds
@@ -29,21 +30,21 @@ def main(args):
     print(lm.model)
 
     print("preparing training data...")
-
+    tokenizer = tokenizer_factory.construct_tokenizer(args.tokenize_regime, lm.vocab)
     if args.train_yaml:
         train_data_stream, single_stream_len = yaml_factory_noepoch(args.train_yaml, lm, device)
     else:
         train_data_stream, single_stream_len = plain_factory_noepoch(
             data_fn=args.train,
             lm=lm,
-            tokenize_regime=args.tokenize_regime,
+            tokenizer=tokenizer,
             batch_size=args.batch_size,
             device=device,
             target_seq_len=args.target_seq_len,
         )
 
     print("preparing validation data...")
-    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenize_regime=args.tokenize_regime)
+    evaluator = EnblockEvaluator(lm, args.valid, 10, args.target_seq_len, tokenizer)
 
     def val_loss_fn():
         return evaluator.evaluate().loss_per_token
@@ -113,7 +114,7 @@ if __name__ == '__main__':
                                   help='location of the train corpus')
     parser.add_argument('--valid', type=str, required=True,
                         help='location of the valid corpus')
-    parser.add_argument('--tokenize-regime', default='words', choices=['words', 'chars'],
+    parser.add_argument('--tokenize-regime', default='words', choices=['words', 'words-lines', 'chars'],
                         help='words are separated by whitespace, characters take whitespace into account')
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')

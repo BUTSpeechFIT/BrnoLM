@@ -54,20 +54,14 @@ class TokenizerFactory:
         else:
             raise ValueError(f'Unsupported tokenization regime {regime}')
 
+
 tokenizer_factory = TokenizerFactory()
 
 
-def tokens_from_file(f, vocab, randomize, regime='words'):
+def tokens_from_file(f, vocab, randomize, tokenizer):
     ids = []
 
     lines = f.read().split('\n')
-
-    if regime == 'words':
-        tokenizer = word_splitter
-    elif regime == 'chars':
-        tokenizer = lambda line: char_splitter(line, '</s>')
-    else:
-        raise ValueError("unsupported regime {}".format(regime))
 
     if randomize:
         import random
@@ -80,9 +74,9 @@ def tokens_from_file(f, vocab, randomize, regime='words'):
     return torch.LongTensor(ids)
 
 
-def tokens_from_fn(fn, vocab, randomize, regime='words'):
+def tokens_from_fn(fn, vocab, randomize, tokenizer):
     with open(fn, 'r') as f:
-        return tokens_from_file(f, vocab, randomize, regime)
+        return tokens_from_file(f, vocab, randomize, tokenizer)
 
 
 def get_independent_lines(f, vocab):
