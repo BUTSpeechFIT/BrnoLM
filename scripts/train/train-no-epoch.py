@@ -81,7 +81,7 @@ def main(args):
 
         optim.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm(lm.parameters(), args.clip)
+        torch.nn.utils.clip_grad_norm_(lm.parameters(), args.clip)
 
         optim.step()
         logger.log(loss.data)
