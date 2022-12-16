@@ -41,6 +41,20 @@ class CharIdProvider:
         return [self.vocab[c] for c in chars]
 
 
+class TokenizerFactory:
+    def construct_tokenizer(self, regime, vocab):
+        if regime == 'words':
+            return WordIdProvider(vocab)
+        elif regime == 'words-lines':
+            return WordIdLineEndProvider(vocab)
+        elif regime == 'chars':
+            return CharIdProvider(vocab)
+        else:
+            raise ValueError(f'Unsupported tokenization regime {regime}')
+
+tokenizer_factory = TokenizerFactory()
+
+
 def tokens_from_file(f, vocab, randomize, regime='words'):
     ids = []
 
