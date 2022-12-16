@@ -42,13 +42,15 @@ class CharIdProvider:
 
 
 class TokenizerFactory:
+    tokenize_regimes = {
+        'words': WordIdProvider,
+        'words-lines': WordIdLineEndProvider,
+        'chars': CharIdProvider,
+    }
+
     def construct_tokenizer(self, regime, vocab):
-        if regime == 'words':
-            return WordIdProvider(vocab)
-        elif regime == 'words-lines':
-            return WordIdLineEndProvider(vocab)
-        elif regime == 'chars':
-            return CharIdProvider(vocab)
+        if regime in self.tokenize_regimes:
+            return self.tokenize_regimes[regime](vocab)
         else:
             raise ValueError(f'Unsupported tokenization regime {regime}')
 
