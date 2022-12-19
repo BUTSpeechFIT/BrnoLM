@@ -4,7 +4,7 @@ import math
 
 
 class ValidationWatcher:
-    def __init__(self, val_fn, initial_val_loss, freq_in_tokens, workdir, lm):
+    def __init__(self, val_fn, initial_val_loss, freq_in_tokens, workdir, lm, lr_control=None):
         self.val_losses = [initial_val_loss]
         self.validation_fn = val_fn
         self.lm = lm
@@ -23,6 +23,8 @@ class ValidationWatcher:
         self.running_updates = 0
 
         self.nb_total_updates = 0
+
+        self.lr_control = lr_control
 
     def log_training_update(self, loss, nb_targets):
         self.running_loss += loss
@@ -53,4 +55,8 @@ class ValidationWatcher:
     def run_validation(self):
         val_loss = self.validation_fn()
         self.val_losses.append(val_loss)
+
+        if self.lr_control is not None:
+            self.lr_control.step(val_loss)
+
         return val_loss
