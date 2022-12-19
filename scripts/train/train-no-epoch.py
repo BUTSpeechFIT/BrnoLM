@@ -120,8 +120,7 @@ def main(args):
         torch.nn.utils.clip_grad_norm_(lm.parameters(), args.clip)
 
         optim.step()
-        logger._lr = lr_control.lr
-        logger.log(loss.data)
+        logger.log(loss.data, lr_control.lr)
 
 
 if __name__ == '__main__':
