@@ -87,7 +87,7 @@ class EnblockEvaluator:
         self.batch_size = batch_size
         self.lm = lm
 
-        ids = tokens_from_fn(data_fn, lm.vocab, tokenizer=tokenizer, randomize=False)
+        ids = tokens_from_fn(data_fn, tokenizer=tokenizer, randomize=False)
         oov_mask = ids == lm.vocab.unk_ind
         nb_oovs = oov_mask.sum().item()
 

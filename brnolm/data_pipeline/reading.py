@@ -67,7 +67,7 @@ class TokenizerFactory:
 tokenizer_factory = TokenizerFactory()
 
 
-def tokens_from_file(f, vocab, randomize, tokenizer):
+def tokens_from_file(f, randomize, tokenizer):
     ids = []
 
     lines = f.read().split('\n')
@@ -77,15 +77,14 @@ def tokens_from_file(f, vocab, randomize, tokenizer):
         random.shuffle(lines)
 
     for line in lines:
-        tokens = tokenizer(line)
-        ids.extend([vocab[e] for e in tokens])
+        ids.extend(tokenizer(line))
 
     return torch.LongTensor(ids)
 
 
-def tokens_from_fn(fn, vocab, randomize, tokenizer):
+def tokens_from_fn(fn, randomize, tokenizer):
     with open(fn, 'r') as f:
-        return tokens_from_file(f, vocab, randomize, tokenizer)
+        return tokens_from_file(f, randomize, tokenizer)
 
 
 def get_independent_lines(f, vocab):

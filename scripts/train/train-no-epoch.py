@@ -19,6 +19,43 @@ from brnolm.runtime.loggers import InfinityLogger
 from brnolm.runtime.reporting import ValidationWatcher
 
 
+class TrainingEnded(Exception):
+    pass
+
+
+class LearningRateControl:
+    def __init__(self, save_path, lm, lr, min_lr, optim, patience_threshold, init_val_loss):
+        self.save_path = save_path
+        self.lm = lm
+        self.patience_threshold = patience_threshold
+        self.best_val_loss = init_val_loss
+
+        self.lr = lr
+        self.min_lr = min_lr
+        self.optim = optim
+
+        self.patience_ticks = 0
+
+    # Save the model if the validation loss is the best we've seen so far.
+    def step(self, val_loss):
+        if val_loss < self.best_val_loss:
+            torch.save(self.lm, self.save_path)
+            self.best_val_loss = val_loss
+            self.patience_ticks = 0
+        else:
+            self.patience_ticks += 1
+            if self.patience_ticks > self.patience_threshold:
+                self.lr /= 2.0
+                logging.info(f"Decreasing LR to {self.lr}")
+                if self.lr < self.min_lr:
+                    logging.info(f"Learning has reached {self.lr}, training was supposed to stop at {self.min_lr}, stopping.")
+                    raise TrainingEnded
+
+                for p in self.optim.param_groups:
+                    p['lr'] = self.lr
+
+                self.patience_ticks = 0
+
 def main(args):
     print(args)
 
@@ -54,16 +91,12 @@ def main(args):
     print('Initial perplexity {:.2f}'.format(math.exp(initial_val_loss)))
 
     print("training...")
-    lr = args.lr
-    best_val_loss = None
+    optim = torch.optim.SGD(lm.parameters(), args.lr, weight_decay=args.beta)
 
-    val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm)
-    best_val_loss = initial_val_loss
+    lr_control = LearningRateControl(args.save, lm, args.lr, args.min_lr, optim, args.patience, initial_val_loss)
+    val_watcher = ValidationWatcher(val_loss_fn, initial_val_loss, args.val_interval, args.workdir, lm, lr_control)
 
-    optim = torch.optim.SGD(lm.parameters(), lr, weight_decay=args.beta)
-    patience_ticks = 0
-
-    logger = InfinityLogger(0, args.log_interval, lr)
+    logger = InfinityLogger(0, args.log_interval, args.lr)
 
     hidden = None
     for X, targets in train_data_stream:
@@ -77,31 +110,17 @@ def main(args):
         loss, nb_words = lm.decoder.neg_log_prob(output, targets)
         loss /= nb_words
 
-        val_watcher.log_training_update(loss.data, nb_words)
+        try:
+            val_watcher.log_training_update(loss.data, nb_words)
+        except TrainingEnded:
+            break
 
         optim.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm(lm.parameters(), args.clip)
+        torch.nn.utils.clip_grad_norm_(lm.parameters(), args.clip)
 
         optim.step()
-        logger.log(loss.data)
-
-    val_loss = val_loss_fn()
-
-    # Save the model if the validation loss is the best we've seen so far.
-    if val_loss < best_val_loss:
-        torch.save(lm, args.save)
-        best_val_loss = val_loss
-        patience_ticks = 0
-    else:
-        patience_ticks += 1
-        if patience_ticks > args.patience:
-            lr /= 2.0
-            if lr < args.min_lr:
-                print(f"Learning has reached {lr}, training was supposed to stop at {args.min_lr}, stopping.")
-            for p in optim.param_groups:
-                p['lr'] = lr
-            patience_ticks = 0
+        logger.log(loss.data, lr_control.lr)
 
 
 if __name__ == '__main__':

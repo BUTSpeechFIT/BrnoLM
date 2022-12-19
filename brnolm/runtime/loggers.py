@@ -45,21 +45,19 @@ class InfinityLogger(BaseLogger):
         self._epoch = epoch
         self._lr = lr
 
-    def _log(self, loss):
+    def _log(self, loss, lr):
         self._running_loss += loss
+        self._lr = lr
 
     def _flush(self):
         ms_per_log = (time.time() - self._start_time) * 1000 / self._report_period
         cur_loss = (self._running_loss / self._report_period).item()
-        fmt_string = '| epoch {:3d} | {:5d} batches done | lr {:.3e} | ms/batch {:5.2f} | loss {:5.2f} | ppl {:8.2f}\n'
-        line = fmt_string.format(
-            self._epoch, self._nb_logs, self._lr,
-            ms_per_log, cur_loss, math.exp(cur_loss)
-        )
+        line = f'| epoch {self._epoch:3d} | {self._nb_logs:5d} batches done | lr {self._lr:.3e} | ms/batch {ms_per_log:5.2f} | loss {cur_loss:5.2f} | ppl {math.exp(cur_loss):8.2f}\n'
         self._of.write(line)
 
     def _reset(self):
         self._running_loss = 0.0
+
 
 
 class GradLogger(BaseLogger):
