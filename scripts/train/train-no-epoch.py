@@ -56,6 +56,17 @@ class LearningRateControl:
 
                 self.patience_ticks = 0
 
+
+def set_dropout(model, dropout):
+    for module in model.modules():
+        if isinstance(module, torch.nn.Dropout):
+            module.p = dropout
+        elif isinstance(module, torch.nn.LSTM):
+            module.dropout = dropout
+        elif isinstance(module, torch.nn.MultiheadAttention):
+            module.dropout = dropout
+
+
 def main(args):
     print(args)
 
@@ -64,6 +75,8 @@ def main(args):
     print("loading model...")
     device = torch.device('cuda') if args.cuda else torch.device('cpu')
     lm = torch.load(args.load).to(device)
+    if args.dropout:
+        set_dropout(lm, args.dropout)
     print(lm.model)
 
     print("preparing training data...")
@@ -147,6 +160,8 @@ if __name__ == '__main__':
                         help='initial learning rate')
     parser.add_argument('--min-lr', type=float, default=1e-3,
                         help='minimal learning rate, once reached, training stops')
+    parser.add_argument('--dropout', type=float,
+                        help='override the dropout values stored in the model itself')
     parser.add_argument('--patience', type=int, default=0,
                         help='how many epochs since last improvement to wait till reducing LR')
     parser.add_argument('--beta', type=float, default=0,
