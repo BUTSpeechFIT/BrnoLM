@@ -1,0 +1,27 @@
+[project]
+name = "brnolm"
+version = "0.3.0"
+description = "A language modeling toolit"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {file = "LICENSE"}
+keywords = ["language modeling"]
+
+authors = [
+  {email = "ibenes@fit.vutbr.cz", name = "Karel Beneš"}
+]
+
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+]
+
+dependencies = [
+    "numpy",
+    "torch>=1.4",
+    "scikit-learn",
+]
+
+[project.urls]
+repository = "https://github.com/BUTSpeechFIT/BrnoLM"
