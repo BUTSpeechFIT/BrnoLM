@@ -85,8 +85,8 @@ def main(args):
                     nb_new_hs += 1
                 else:
                     raise ValueError(f'Unsupported carry over regime {args.carry_over}')
-                for hyp_no, cost in result.scores.items():
-                    out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
+                for hyp_no in segment_utts.keys():
+                      out_f.write(f"{curr_seg}-{hyp_no} {result.scores[hyp_no]}\n")                                                                                                                                
 
                 curr_seg = segment
                 segment_utts = {}
@@ -95,8 +95,8 @@ def main(args):
 
         # Last segment:
         result = scorer.process_segment(curr_seg, segment_utts)
-        for hyp_no, cost in result.scores.items():
-            out_f.write(f"{curr_seg}-{hyp_no} {cost}\n")
+        for hyp_no in segment_utts.keys():
+              out_f.write(f"{curr_seg}-{hyp_no} {result.scores[hyp_no]}\n")                                                                                                                                
 
     logging.info(f'Hidden state was carried over {nb_carry_overs} times and reset {nb_new_hs} times')
 
