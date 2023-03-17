@@ -8,6 +8,8 @@ import torch
 
 from safe_gpu.safe_gpu import GPUOwner
 
+from brnolm import zoo
+
 from brnolm.data_pipeline.reading import tokenizer_factory
 from brnolm.data_pipeline.pipeline_factories import plain_factory_noepoch, yaml_factory_noepoch
 
@@ -150,6 +152,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--shuffle-lines', action='store_true',
                         help='shuffle lines before every epoch')
+    parser.add_argument('--kia', action='store_true',
+                        help='Plot the motivating animal')
 
     parser.add_argument('--batch-size', type=int, default=20, metavar='N',
                         help='batch size')
@@ -192,5 +196,8 @@ if __name__ == '__main__':
 
     if args.cuda:
         gpu_owner = GPUOwner()
+
+    if args.kia:
+        print(zoo.sloth)
 
     main(args)

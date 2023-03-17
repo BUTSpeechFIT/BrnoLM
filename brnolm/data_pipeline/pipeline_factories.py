@@ -69,11 +69,11 @@ def yaml_factory_noepoch(yaml_fn, lm, device):
     )
 
 
-def plain_factory_noepoch(data_fn, lm, tokenize_regime, batch_size, device, target_seq_len, corruptor_config=None):
+def plain_factory_noepoch(data_fn, lm, tokenizer, batch_size, device, target_seq_len, corruptor_config=None):
     # train_ids = tokens_from_fn(data_fn, lm.vocab, randomize=False, regime=tokenize_regime)
     # reading_heads = [SequenceReadingHead(train_ids, start=k*len(train_ids)//batch_size) for k in range(batch_size)]
 
-    word_id_provider = tokenizer_factory.construct_tokenizer(tokenize_regime, lm.vocab)
+    word_id_provider = tokenizer
 
     proper_head_distance = os.stat(data_fn).st_size // batch_size
 
